@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_loadtim2.h"
 #include "../../../ps2/veronica/prog/ps2_dummy.h"
 #include "../../../ps2/veronica/prog/ps2_pxlconv.h"
@@ -194,6 +197,13 @@ void StoreRenderTex(void* tex_adr)
     
     imagetop = MakeRenderTexHeader(tex_adr);
     
+#ifdef TARGET_PC
+    if (pc_native_rtex()) {   /* the render thread copies the frame buffer into a texture (texture_glue.c) */
+        pc_rtex_capture(tex_adr, imagetop, 512, 512);
+        Ps2ScreenClear();
+        return;
+    }
+#endif
     l = 255;
     
     for (loop = 0; loop < 512; loop += l) 
@@ -333,7 +343,32 @@ int Send_1024_Clut_data(void* clt_adr, unsigned long send_clut_adr)
 } 
 
 // 100% matching! 
+#ifdef TARGET_PC
+static int Send_Tim2_dataEx_(void* tim2_top_adr, unsigned long send_image_adr, unsigned long send_clut_adr, int upload);
+
+/* rendering rework: with native textures (pc/glue/texture_glue.c) a TIM2 is uploaded the
+   first time its content is seen (recorded as a definition) and only bound afterwards;
+   return value and Set_GsTex are as in the original */
 int Send_Tim2_dataEx(void* tim2_top_adr, unsigned long send_image_adr, unsigned long send_clut_adr)
+{
+    TIM2_PICTUREHEADER* ph;
+    unsigned int id;
+    int is_new, r;
+    ph = (TIM2_PICTUREHEADER*)((int)tim2_top_adr + (((unsigned char*)tim2_top_adr)[5] != 0 ? 128 : 16));
+    if (pc_native_rtex() && ph->ImageType == TIM2_RGB32 && ph->ClutType == 0 &&
+        pc_rtex_bind((char*)ph + ph->HeaderSize, (unsigned int)send_image_adr, (unsigned int)send_clut_adr))
+        return Send_Tim2_dataEx_(tim2_top_adr, send_image_adr, send_clut_adr, 0);   /* a captured render texture */
+    if (!pc_native_tex()) return Send_Tim2_dataEx_(tim2_top_adr, send_image_adr, send_clut_adr, 1);
+    id = pc_tex_begin(tim2_top_adr, ph, (unsigned int)send_image_adr, (unsigned int)send_clut_adr, &is_new);
+    r = Send_Tim2_dataEx_(tim2_top_adr, send_image_adr, send_clut_adr, is_new);
+    pc_tex_end(id, (unsigned int)send_image_adr, (unsigned int)send_clut_adr, is_new);
+    return r;
+}
+
+static int Send_Tim2_dataEx_(void* tim2_top_adr, unsigned long send_image_adr, unsigned long send_clut_adr, int upload)
+#else
+int Send_Tim2_dataEx(void* tim2_top_adr, unsigned long send_image_adr, unsigned long send_clut_adr)
+#endif
 {
     TIM2_PICTUREHEADER* pPhead;
 
@@ -346,7 +381,13 @@ int Send_Tim2_dataEx(void* tim2_top_adr, unsigned long send_image_adr, unsigned 
         pPhead = (TIM2_PICTUREHEADER*)((int)tim2_top_adr + 16);
     }
     
+#ifdef TARGET_PC
+    if ((pPhead->ClutType != 0) && (upload ? Clut_Load_Func(pPhead, send_clut_adr) < 0
+                                           : (((pPhead->ClutType << 8) | pPhead->ImageType) != ((TIM2_RGB32 << 8) | TIM2_IDTEX4) &&
+                                              ((pPhead->ClutType << 8) | pPhead->ImageType) != ((TIM2_RGB32 << 8) | TIM2_IDTEX8)))) 
+#else
     if ((pPhead->ClutType != 0) && (Clut_Load_Func(pPhead, send_clut_adr) < 0)) 
+#endif
     {
         printf("Can't Load Clut\n");
         
@@ -354,6 +395,9 @@ int Send_Tim2_dataEx(void* tim2_top_adr, unsigned long send_image_adr, unsigned 
     }
     else if (((pPhead->ImageWidth < 1024) && (pPhead->ImageHeight < 1024)) && ((pPhead->ImageWidth > 128) && (pPhead->ImageHeight > 128)) && ((pPhead->ImageType == 4) || (pPhead->ImageType == 5))) 
     {
+#ifdef TARGET_PC
+        if (upload)
+#endif
         P32_Image_Load(pPhead, send_image_adr);
         
         Set_GsTex(pPhead, send_image_adr, send_clut_adr);
@@ -361,6 +405,9 @@ int Send_Tim2_dataEx(void* tim2_top_adr, unsigned long send_image_adr, unsigned 
         return 1;
     }
     
+#ifdef TARGET_PC
+    if (upload)
+#endif
     Tim2_Image_Load(pPhead, send_image_adr);
     
     Set_GsTex(pPhead, send_image_adr, send_clut_adr);
@@ -553,14 +600,23 @@ void SyncPath()
     
     DPUT_D_PCR(DGET_D_PCR() & 0x2); 
     
-    asm volatile (bc0t label_0f1); 
+#ifndef TARGET_PC
+    asm volatile (bc0t label_0f1);
+#else
+    { /* asm2c */ }
+#endif 
 
 label_0b1:
+#ifndef TARGET_PC
     asm volatile 
     {
         bc0f label_0b1
         nop
     }
+#else
+    { /* asm2c */
+    }
+#endif
 
 label_0f1:    
     DPUT_D_PCR(DGET_D_PCR() | tmp); 
@@ -569,20 +625,30 @@ label_0f1:
 
     DPUT_D_PCR(DGET_D_PCR() & 0x4); 
     
-    asm volatile (bc0t label_0f2); 
+#ifndef TARGET_PC
+    asm volatile (bc0t label_0f2);
+#else
+    { /* asm2c */ }
+#endif 
 
 label_0b2:
+#ifndef TARGET_PC
     asm volatile 
     {
         bc0f label_0b2
         nop
     }
+#else
+    { /* asm2c */
+    }
+#endif
     
 label_0f2:
     DPUT_D_PCR(DGET_D_PCR() | tmp); 
 
     while (DGET_VIF1_STAT() & 0x1F000003); 
 
+#ifndef TARGET_PC
     asm volatile 
     {
         loop:
@@ -591,6 +657,15 @@ label_0f2:
         andi v0, a2, 0x100
         bnez v0, loop
     }
+#else
+    { /* asm2c */
+        ee_reg R2 = {{0}}, R6 = {{0}};
+    loop:;
+        R6.sd[0] = (int32_t)(vu_cfc2(29));
+        R2.d[0] = R6.d[0] & (uint64_t)(uint16_t)(256);
+        if (R2.sd[0] != 0) goto loop;
+    }
+#endif
     
     while (DGET_GIF_STAT() & 0xC00); 
 } 
@@ -606,14 +681,23 @@ void D2_SyncTag()
     
     if ((DGET_D_PCR() & 0x4)) 
     { 
-        asm volatile (bc0t label_0f); 
+#ifndef TARGET_PC
+        asm volatile (bc0t label_0f);
+#else
+        { /* asm2c */ }
+#endif 
     
     label_0b:
+#ifndef TARGET_PC
         asm volatile 
         {
             bc0f label_0b
             nop
         }
+#else
+        { /* asm2c */
+        }
+#endif
     }
 
 label_0f:
@@ -623,14 +707,23 @@ label_0f:
 // 100% matching! 
 void loadImage(void* tags)
 {
-    asm volatile (bc0t label_0f); 
+#ifndef TARGET_PC
+    asm volatile (bc0t label_0f);
+#else
+    { /* asm2c */ }
+#endif 
     
 label_0b:
+#ifndef TARGET_PC
     asm volatile 
     {
         bc0f label_0b
         nop
     }
+#else
+    { /* asm2c */
+    }
+#endif
 
 label_0f:
     DPUT_D_PCR(4); 

@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_NaMath.h"
 #include "../../../ps2/veronica/prog/main.h"
 
@@ -19,6 +22,7 @@ Float	njSin(Angle n)
 {
     float ret;
     
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder
@@ -75,6 +79,14 @@ Float	njSin(Angle n)
     .set reorder
     " : "=r"(ret) : "r"(&n), "r"(SinTable) : 
     );
+#else
+    { /* hand-translated: v = SinTable[n & 0x3FFF] (mirrored in the 2nd/4th quadrant), negated for n & 0x8000 */
+        int idx = n & 0x3FFF;
+        float v = (n & 0x4000) ? SinTable[0x3FFF - idx] : SinTable[idx];
+        ret = (n & 0x8000) ? -v : v;
+        return ret; /* the asm returned through $f0 */
+    }
+#endif
 }
 
 // 100% matching!
@@ -82,6 +94,7 @@ Float	njCos(Angle n)
 {
 	float ret;
 
+#ifndef TARGET_PC
 	asm volatile 
     ("
     .set noreorder
@@ -137,11 +150,22 @@ Float	njCos(Angle n)
     .set reorder
     " : "=r"(ret) : "r"(&n), "r"(SinTable) : 
     );
+#else
+	{ /* hand-translated */
+	    int idx = n & 0x3FFF;
+	    if (n & 0x4000)
+	        ret = (n & 0x8000) ? SinTable[idx] : -SinTable[idx];
+	    else
+	        ret = (n & 0x8000) ? -SinTable[0x3FFF - idx] : SinTable[0x3FFF - idx];
+	    return ret; /* the asm returned through $f0 */
+	}
+#endif
 }
 
 // 100% matching!
 void njSinCos(int lAngle, float* sin, float* cos)
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder
@@ -218,6 +242,68 @@ void njSinCos(int lAngle, float* sin, float* cos)
     .set reorder
     " : : "r"(&lAngle), "r"(sin), "r"(cos), "r"(SinTable) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R3 = {{0}}, R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}}, R12 = {{0}}, R13 = {{0}}, R14 = {{0}}, R15 = {{0}};
+        float F4 = 0.0f, F5 = 0.0f, F6 = 0.0f, F7 = 0.0f;
+        int ee_cond;
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(&lAngle);
+        op1.sd[0] = (int32_t)(uintptr_t)(sin);
+        op2.sd[0] = (int32_t)(uintptr_t)(cos);
+        op3.sd[0] = (int32_t)(uintptr_t)(SinTable);
+        R3.d[0] = op3.d[0];
+        R8.sd[0] = EE_LW((op0.w[0] + (uint32_t)(0)));
+        R10.sd[0] = (int32_t)(ee_zero.w[0] + (uint32_t)(16383));
+        R11.d[0] = R8.d[0] & (uint64_t)(uint16_t)(16384);
+        ee_cond = (R11.sd[0] == 0);
+        R9.d[0] = R8.d[0] & R10.d[0];
+        if (ee_cond) goto l_002D7E4C;
+        R10.sd[0] = (int32_t)(R10.w[0] + -R9.w[0]);
+        R9.sd[0] = (int32_t)(R9.w[0] * (uint32_t)(4));
+        R10.sd[0] = (int32_t)(R10.w[0] * (uint32_t)(4));
+        R9.sd[0] = (int32_t)(R9.w[0] + R3.w[0]);
+        R10.sd[0] = (int32_t)(R10.w[0] + R3.w[0]);
+        F4 = EE_LWF((R10.w[0] + (uint32_t)(0)));
+        F5 = EE_LWF((R9.w[0] + (uint32_t)(0)));
+        F6 = -F4;
+        F7 = -F5;
+        R12.sd[0] = (int32_t)(ee_f2u(F6));
+        R13.sd[0] = (int32_t)(ee_f2u(F5));
+        R14.sd[0] = (int32_t)(ee_f2u(F4));
+        R15.sd[0] = (int32_t)(ee_f2u(F7));
+        R8.d[0] = R8.d[0] & (uint64_t)(uint16_t)(32768);
+        if (R8.d[0] == 0) R12.d[0] = R14.d[0];
+        if (R8.d[0] == 0) R13.d[0] = R15.d[0];
+        goto l_002D7E9C;
+    l_002D7E4C:;
+        R10.sd[0] = (int32_t)(R10.w[0] + -R9.w[0]);
+        R9.sd[0] = (int32_t)(R9.w[0] * (uint32_t)(4));
+        R10.sd[0] = (int32_t)(R10.w[0] * (uint32_t)(4));
+        R9.sd[0] = (int32_t)(R9.w[0] + R3.w[0]);
+        R10.sd[0] = (int32_t)(R10.w[0] + R3.w[0]);
+        F4 = EE_LWF((R9.w[0] + (uint32_t)(0)));
+        F5 = EE_LWF((R10.w[0] + (uint32_t)(0)));
+        F6 = -F4;
+        F7 = -F5;
+        R12.sd[0] = (int32_t)(ee_f2u(F4));
+        R13.sd[0] = (int32_t)(ee_f2u(F5));
+        R14.sd[0] = (int32_t)(ee_f2u(F6));
+        R15.sd[0] = (int32_t)(ee_f2u(F7));
+        R8.d[0] = R8.d[0] & (uint64_t)(uint16_t)(32768);
+        if (R8.d[0] != 0) R12.d[0] = R14.d[0];
+        if (R8.d[0] != 0) R13.d[0] = R15.d[0];
+    l_002D7E9C:;
+        EE_SW((op1.w[0] + (uint32_t)(0)), R12.d[0]);
+        EE_SW((op2.w[0] + (uint32_t)(0)), R13.d[0]);
+        vu_load_vf(11, &R12);
+        vu_load_vf(12, &R13);
+    }
+#endif
 }
 
 // 100% matching! 
@@ -233,6 +319,7 @@ Float	njSqrt(Float n)
 
 	ret = 0;
     
+#ifndef TARGET_PC
     asm volatile
     ("
         mfc1    t0, f12
@@ -250,6 +337,15 @@ Float	njSqrt(Float n)
         mtc1    v0, %0
     " : "=f"(ret) : : 
     );
+#else
+    { /* hand-translated: Q = sqrt(|n|); vf8 = { Q, sext(n), -, - } as left by the asm */
+        union { float f; int32_t i; } in = { n };
+        g_vu0.vf[8].f[0] = n; g_vu0.vf[8].i[1] = in.i >> 31;
+        vu_sqrt(8, 0);
+        g_vu0.vf[8].f[0] = vu_clampf(0.0f + g_vu0.q);
+        ret = g_vu0.vf[8].f[0];
+    }
+#endif
 
     return ret;
 }
@@ -261,6 +357,7 @@ Float	njInvertSqrt(Float n)
 
     ret = 0;
     
+#ifndef TARGET_PC
     asm volatile
     ("
         mfc1    t0, f12
@@ -278,6 +375,15 @@ Float	njInvertSqrt(Float n)
         mtc1    v0, %0
     " : "=f"(ret) : : 
     );
+#else
+    { /* hand-translated: Q = 1/sqrt(|n|); vf8 = { Q, sext(n), -, - } as left by the asm */
+        union { float f; int32_t i; } in = { n };
+        g_vu0.vf[8].f[0] = n; g_vu0.vf[8].i[1] = in.i >> 31;
+        vu_rsqrt(0, 3, 8, 0);
+        g_vu0.vf[8].f[0] = vu_clampf(0.0f + g_vu0.q);
+        ret = g_vu0.vf[8].f[0];
+    }
+#endif
 
     return ret;
 }
@@ -285,6 +391,7 @@ Float	njInvertSqrt(Float n)
 // 100% matching! 
 void	njLinear(Float *idata, Float *odata, NJS_SPLINE *attr, Float frame)
 {
+#ifndef TARGET_PC
 	asm volatile
     ("
 	    addi      a4, %0, 12
@@ -324,6 +431,38 @@ void	njLinear(Float *idata, Float *odata, NJS_SPLINE *attr, Float frame)
         sw        a7,   8(%1) 
     " : : "r"(idata), "r"(odata), "r"(attr), "f"(frame) : 
     );
+#else
+	{ /* asm2c */
+	    ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}}, R12 = {{0}}, R13 = {{0}};
+	    ee_reg op0 = {{0}};
+	    ee_reg op1 = {{0}};
+	    ee_reg op3 = {{0}};
+	    op0.sd[0] = (int32_t)(uintptr_t)(idata);
+	    op1.sd[0] = (int32_t)(uintptr_t)(odata);
+	    op3.f[0] = (float)(frame);
+	    R8.sd[0] = (int32_t)(op0.w[0] + (uint32_t)(12));
+	    R9.sd[0] = (int32_t)(ee_f2u(op3.f[0]));
+	    R10.d[0] = ee_ldl(R10.d[0], (op0.w[0] + (uint32_t)(7)));
+	    R10.d[0] = ee_ldr(R10.d[0], (op0.w[0] + (uint32_t)(0)));
+	    R11.sd[0] = EE_LW((op0.w[0] + (uint32_t)(8)));
+	    R12.d[0] = ee_ldl(R12.d[0], (R8.w[0] + (uint32_t)(7)));
+	    R12.d[0] = ee_ldr(R12.d[0], (R8.w[0] + (uint32_t)(0)));
+	    R13.sd[0] = EE_LW((R8.w[0] + (uint32_t)(8)));
+	    ee_pcpyld(&R10, &R11, &R10);
+	    ee_pcpyld(&R12, &R13, &R12);
+	    vu_load_vf(10, &R10);
+	    vu_load_vf(11, &R12);
+	    vu_load_vf(9, &R9);
+	    vu_upper(U_SUB, 14, 12, 11, 10, BC_NONE);
+	    vu_upper(U_MUL, 14, 12, 12, 9, BC_X);
+	    vu_upper(U_ADD, 14, 4, 12, 10, BC_NONE);
+	    vu_store_vf(&R10, 4);
+	    ee_pcpyud(&R11, &R10, &R10);
+	    ee_sdl((op1.w[0] + (uint32_t)(7)), R10.d[0]);
+	    ee_sdr((op1.w[0] + (uint32_t)(0)), R10.d[0]);
+	    EE_SW((op1.w[0] + (uint32_t)(8)), R11.d[0]);
+	}
+#endif
 }
 
 // 100% matching! 
@@ -333,6 +472,7 @@ void	njOverhauserSpline(Float *idata, Float *odata, NJS_SPLINE *attr, Float fram
 
 	ftmp = 0.5f;
 
+#ifndef TARGET_PC
 	asm volatile
     ("
 		mfc1      a4, %3
@@ -423,6 +563,73 @@ void	njOverhauserSpline(Float *idata, Float *odata, NJS_SPLINE *attr, Float fram
         sw        a7,   8(%1) 
     " : : "r"(idata), "r"(odata), "r"(attr), "f"(frame), "f"(ftmp) : 
     );
+#else
+	{ /* asm2c */
+	    ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}}, R12 = {{0}}, R13 = {{0}}, R14 = {{0}}, R15 = {{0}};
+	    ee_reg op0 = {{0}};
+	    ee_reg op1 = {{0}};
+	    ee_reg op3 = {{0}};
+	    ee_reg op4 = {{0}};
+	    op0.sd[0] = (int32_t)(uintptr_t)(idata);
+	    op1.sd[0] = (int32_t)(uintptr_t)(odata);
+	    op3.f[0] = (float)(frame);
+	    op4.f[0] = (float)(ftmp);
+	    R8.sd[0] = (int32_t)(ee_f2u(op3.f[0]));
+	    vu_upper(U_ADD, 8, 12, 0, 0, BC_W);
+	    vu_upper(U_ADD, 8, 12, 12, 0, BC_W);
+	    vu_load_vf(4, &R8);
+	    vu_upper(U_MUL, 8, 5, 4, 4, BC_NONE);
+	    vu_upper(U_MUL, 8, 6, 5, 4, BC_NONE);
+	    vu_upper(U_ADD, 8, 8, 5, 5, BC_NONE);
+	    vu_upper(U_SUB, 8, 8, 8, 6, BC_NONE);
+	    vu_upper(U_SUB, 8, 8, 8, 4, BC_NONE);
+	    vu_upper(U_MUL, 8, 10, 5, 2, BC_Z);
+	    vu_upper(U_MUL, 8, 9, 6, 2, BC_NONE);
+	    vu_upper(U_SUB, 8, 9, 9, 10, BC_NONE);
+	    vu_upper(U_ADD, 8, 9, 9, 12, BC_NONE);
+	    vu_upper(U_SUB, 8, 7, 0, 2, BC_NONE);
+	    vu_upper(U_MUL, 8, 7, 6, 7, BC_X);
+	    vu_upper(U_MUL, 8, 10, 5, 2, BC_Y);
+	    vu_upper(U_ADD, 8, 10, 10, 4, BC_NONE);
+	    vu_upper(U_ADD, 8, 10, 10, 7, BC_NONE);
+	    vu_upper(U_SUB, 8, 11, 6, 5, BC_NONE);
+	    R9.sd[0] = (int32_t)(ee_f2u(op4.f[0]));
+	    vu_load_vf(12, &R9);
+	    R8.d[0] = ee_ldl(R8.d[0], (op0.w[0] + (uint32_t)(7)));
+	    R8.d[0] = ee_ldr(R8.d[0], (op0.w[0] + (uint32_t)(0)));
+	    R9.sd[0] = EE_LW((op0.w[0] + (uint32_t)(8)));
+	    R10.d[0] = ee_ldl(R10.d[0], (op0.w[0] + (uint32_t)(19)));
+	    R10.d[0] = ee_ldr(R10.d[0], (op0.w[0] + (uint32_t)(12)));
+	    R11.sd[0] = EE_LW((op0.w[0] + (uint32_t)(20)));
+	    R12.d[0] = ee_ldl(R12.d[0], (op0.w[0] + (uint32_t)(31)));
+	    R12.d[0] = ee_ldr(R12.d[0], (op0.w[0] + (uint32_t)(24)));
+	    R13.sd[0] = EE_LW((op0.w[0] + (uint32_t)(32)));
+	    R14.d[0] = ee_ldl(R14.d[0], (op0.w[0] + (uint32_t)(43)));
+	    R14.d[0] = ee_ldr(R14.d[0], (op0.w[0] + (uint32_t)(36)));
+	    R15.sd[0] = EE_LW((op0.w[0] + (uint32_t)(44)));
+	    ee_pcpyld(&R8, &R9, &R8);
+	    ee_pcpyld(&R10, &R11, &R10);
+	    ee_pcpyld(&R12, &R13, &R12);
+	    ee_pcpyld(&R14, &R15, &R14);
+	    vu_load_vf(4, &R8);
+	    vu_load_vf(5, &R10);
+	    vu_load_vf(6, &R12);
+	    vu_load_vf(7, &R14);
+	    vu_upper(U_MUL, 14, 4, 4, 8, BC_X);
+	    vu_upper(U_MUL, 14, 5, 5, 9, BC_X);
+	    vu_upper(U_MUL, 14, 6, 6, 10, BC_X);
+	    vu_upper(U_MUL, 14, 7, 7, 11, BC_X);
+	    vu_upper(U_ADD, 14, 4, 4, 5, BC_NONE);
+	    vu_upper(U_ADD, 14, 4, 4, 6, BC_NONE);
+	    vu_upper(U_ADD, 14, 4, 4, 7, BC_NONE);
+	    vu_upper(U_MUL, 14, 4, 4, 12, BC_X);
+	    vu_store_vf(&R10, 4);
+	    ee_pcpyud(&R11, &R10, &R10);
+	    ee_sdl((op1.w[0] + (uint32_t)(7)), R10.d[0]);
+	    ee_sdr((op1.w[0] + (uint32_t)(0)), R10.d[0]);
+	    EE_SW((op1.w[0] + (uint32_t)(8)), R11.d[0]);
+	}
+#endif
 }
 
 // 100% matching! 

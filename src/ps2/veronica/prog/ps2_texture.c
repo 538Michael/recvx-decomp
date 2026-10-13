@@ -134,7 +134,7 @@ int bhSetMemPvpTexture(NJS_TEXLIST* tlp, unsigned char* datp, int offset)
         case MAKE_MAGIC('P', 'L', 'I', 0):
             if (sz != 0) 
             { 
-                palnum = *((int*)ap)++; 
+                palnum = PS2_POSTINC(int, ap); 
                 
                 for (lop = 0; lop < palnum; lop++, ap += 8) 
                 { 
@@ -308,6 +308,10 @@ void bhReleaseMainTexture()
     O_WRK* op; 
     int i; 
     int j; 
+
+#ifdef TARGET_PC
+    spawn_release();   /* textures of enemies the F2 spawner brought in */
+#endif
 
     if (rom->mdl.texP != NULL)
     {

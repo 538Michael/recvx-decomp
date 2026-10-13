@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_Vu1Scissor2.h"
 #include "../../../ps2/veronica/prog/ps2_Vu1Strip.h"
 
@@ -14,6 +17,7 @@ void DrawScissorPolygonOpaque2(int count, unsigned long ulType)
 {
     VU1_PRIM_BUF* pPrim; 
 
+#ifndef TARGET_PC
     asm volatile
     ("
         lw        t0, 0(%1)
@@ -51,6 +55,35 @@ void DrawScissorPolygonOpaque2(int count, unsigned long ulType)
         nop
     " : : "r"(vu1ScessorBuf), "r"(&count) : "$t0", "memory"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(vu1ScessorBuf);
+        op1.sd[0] = (int32_t)(uintptr_t)(&count);
+        R8.sd[0] = EE_LW((op1.w[0] + (uint32_t)(0)));
+        R9.sd[0] = (int32_t)(ee_zero.w[0] + (uint32_t)(80));
+        vu_ctc2(3, R9.w[0]);
+    l_002D3B2C:;
+        vu0_callms(VU0_ADDR_VU0_LOAD_SCISSOR_WORKi);
+        vu_div(0, 3, 9, 2);
+        vu_upper(U_MUL, 1, 10, 0, 0, BC_X);
+        vu_upper(U_MUL, 12, 9, 9, 17, BC_NONE);
+        vu_upper(U_ADD, 2, 10, 0, 0, BC_W);
+        R8.sd[0] = (int32_t)(R8.w[0] + (uint32_t)(-1));
+        op0.sd[0] = (int32_t)(op0.w[0] + (uint32_t)((sizeof(VU1_PRIM_BUF))));
+        vu_upper(U_MUL, 2, 4, 23, 0, BC_Q);
+        vu_upper(U_MUL, 14, 10, 10, 0, BC_Q);
+        vu_upper(U_MUL, 12, 9, 9, 4, BC_Z);
+        vu_upper(U_ADD, 12, 9, 9, 16, BC_NONE);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(-48))), 10);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(-32))), 11);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(-16))), 9);
+        if (R8.sd[0] != 0) goto l_002D3B2C;
+    }
+#endif
 
     ulType = (ulType & ~0x2000000000000) | 0x6800000000000;
     
@@ -62,12 +95,20 @@ void DrawScissorPolygonOpaque2(int count, unsigned long ulType)
 // 100% matching!
 void InitNodeArraySet2()
 {
+#ifndef TARGET_PC
     asm volatile 
     {
         vmove.xyzw vf15, vf0
         vmove.xyzw vf18, vf0
         vmove.xyzw vf19, vf0
     }
+#else
+    { /* asm2c */
+        vu_move(15, 15, 0);
+        vu_move(15, 18, 0);
+        vu_move(15, 19, 0);
+    }
+#endif
 }
 
 // 92.50% matching
@@ -77,6 +118,7 @@ unsigned int _Clip_ViewVolume2(NJS_POINT4* vec)
     
     ret = 0;
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -86,6 +128,14 @@ unsigned int _Clip_ViewVolume2(NJS_POINT4* vec)
     .set reorder
     " : : "r"(vec) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(vec);
+        vu_load_vf(14, EE_PTR((op0.w[0] + (uint32_t)(offsetof(NJS_POINT4, x)))));
+        vu0_callms(VU0_ADDR_VU0_CLIP_VIEW_VOLUME);
+    }
+#endif
     
     return ret;
 }
@@ -97,6 +147,7 @@ unsigned int _Get_ClipViewVolume2()
 
     ret = 0;
 
+#ifndef TARGET_PC
     asm volatile 
     ("
         cfc2.i %0, vi18
@@ -104,6 +155,15 @@ unsigned int _Get_ClipViewVolume2()
         addi   %0, %0, 0 
     " : "=r"(ret) : : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(ret);
+        op0.sd[0] = (int32_t)(vu_cfc2(18));
+        op0.sd[0] = (int32_t)(op0.w[0] + (uint32_t)(0));
+        ret = (__typeof__(ret))(uintptr_t)op0.w[0];
+    }
+#endif
 
     return ret;
 }
@@ -115,6 +175,7 @@ int _Get_ClipVolumePlane()
 
     ret = 0;
 
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder
@@ -124,6 +185,15 @@ int _Get_ClipVolumePlane()
     .set reorder
     " : "=r"(ret) : : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(ret);
+        op0.sd[0] = (int32_t)(vu_cfc2(2));
+        op0.sd[0] = (int32_t)(op0.w[0] + (uint32_t)(0));
+        ret = (__typeof__(ret))(uintptr_t)op0.w[0];
+    }
+#endif
 
     return ret;
 }
@@ -131,6 +201,7 @@ int _Get_ClipVolumePlane()
 // 91.43% matching
 void _Check_ClipViewAll(NJS_POINT4* vec) 
 {
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -140,11 +211,20 @@ void _Check_ClipViewAll(NJS_POINT4* vec)
     .set reorder
     " : : "r"(vec) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(vec);
+        vu_load_vf(14, EE_PTR((op0.w[0] + (uint32_t)(offsetof(NJS_POINT4, x)))));
+        vu0_callms(VU0_ADDR_VU0_CLIP_VIEW_VOLUME_ALL);
+    }
+#endif
 }
 
 // 96% matching
 void _Set_NodeArray(VU1_STRIP_BUF* pS, VU1_PRIM_BUF* pP)
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder
@@ -162,6 +242,24 @@ void _Set_NodeArray(VU1_STRIP_BUF* pS, VU1_PRIM_BUF* pP)
     .set reorder
     " : : "r"(pS), "r"(pP) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pS);
+        op1.sd[0] = (int32_t)(uintptr_t)(pP);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(-96))));
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(-32))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(-128))));
+        vu_load_vf(8, EE_PTR((op0.w[0] + (uint32_t)(-64))));
+        vu_load_vf(9, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(10, EE_PTR((op1.w[0] + (uint32_t)(-80))));
+        vu_load_vf(11, EE_PTR((op1.w[0] + (uint32_t)(-32))));
+        vu_load_vf(12, EE_PTR((op1.w[0] + (uint32_t)(16))));
+        vu0_callms(VU0_ADDR_VU0_SET_NODE_ARRAY);
+    }
+#endif
 }
 
 // TODO: Verify that this function hasn't got more parts written in C, for example addiu and paddub tend to be compiler-emitted instructions
@@ -173,6 +271,7 @@ int _ClipInter(int mask1, int mask2, int xyzflg, float sin, int work0, int work1
 
     ret = 0;
 
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder
@@ -393,6 +492,62 @@ int _ClipInter(int mask1, int mask2, int xyzflg, float sin, int work0, int work1
     .set reorder
     " : "=r"(ret) : "r"(pad) : 
     );
+#else
+    { /* Translated from the retail ELF (0x2D3C80): the decomp's block is raw-ABI asm.
+         Clips the node list against one plane: each edge (vf4..7 -> vf8..11) is clip-tested,
+         intersections are interpolated along component `xyzflg` with sign `sin`, and nodes
+         are appended through VU0_STORE_SCISSOR_WORK (vi04++). Returns the output count. */
+        int t3 = count, xyz;
+        uint32_t flags;
+        vu_ctc2(3, (uint32_t)work0);
+        vu_ctc2(4, (uint32_t)work1);
+        g_vu0.vi[5] = g_vu0.vi[4];
+        vu0_callms(VU0_ADDR_VU0_LOAD_SCISSOR_WORKi);
+        g_vu0.vf[12].f[0] = sin;
+#define CLIPINTER_INTERPOLATE() do { \
+            vu_upper(U_MUL, VU_W, 13, 4, 12, BC_X); \
+            vu_upper(U_MUL, VU_W, 14, 8, 12, BC_X); \
+            vu_upper(U_SUB, VU_XYZW, 13, 4, 13, BC_W); \
+            vu_upper(U_SUB, VU_XYZW, 14, 8, 14, BC_W); \
+            for (xyz = xyzflg; xyz != 0; xyz--) { vu_mr32(VU_XYZW, 13, 13); vu_mr32(VU_XYZW, 14, 14); } \
+            vu_upper(U_SUB, VU_XYZ, 14, 14, 13, BC_NONE); \
+            vu_div(13, 0, 14, 0); \
+            vu_upper(U_ADD, VU_X, 13, 0, 0, BC_Q); \
+            vu_upper(U_ABS, VU_X, 13, 13, 0, BC_NONE); \
+            vu_upper(U_SUB, VU_XYZW, 14, 8, 4, BC_NONE);  vu_upper(U_MUL, VU_XYZW, 14, 14, 13, BC_X); vu_upper(U_ADD, VU_XYZW, 4, 4, 14, BC_NONE); \
+            vu_upper(U_SUB, VU_XYZW, 14, 9, 5, BC_NONE);  vu_upper(U_MUL, VU_XYZW, 14, 14, 13, BC_X); vu_upper(U_ADD, VU_XYZW, 5, 5, 14, BC_NONE); \
+            vu_upper(U_MAX, VU_Z, 5, 5, 0, BC_W); \
+            vu_upper(U_SUB, VU_XYZW, 14, 10, 6, BC_NONE); vu_upper(U_MUL, VU_XYZW, 14, 14, 13, BC_X); vu_upper(U_ADD, VU_XYZW, 6, 6, 14, BC_NONE); \
+            vu_upper(U_SUB, VU_XYZW, 14, 11, 7, BC_NONE); vu_upper(U_MUL, VU_XYZW, 14, 14, 13, BC_X); vu_upper(U_ADD, VU_XYZW, 7, 7, 14, BC_NONE); \
+        } while (0)
+        do {
+            vu_move(VU_XYZW, 4, 8); vu_move(VU_XYZW, 5, 9); vu_move(VU_XYZW, 6, 10); vu_move(VU_XYZW, 7, 11);
+            vu0_callms(VU0_ADDR_VU0_LOAD_SCISSOR_WORKi);
+            vu_clipw(4, 4);
+            vu_clipw(8, 8);
+            flags = vu_cfc2(18);
+            if (flags & (uint32_t)mask1) {
+                if (!(flags & (uint32_t)mask2)) {      /* leaving: intersection only */
+                    CLIPINTER_INTERPOLATE();
+                    vu0_callms(VU0_ADDR_VU0_STORE_SCISSOR_WORK);
+                    ret += 1;
+                }
+            } else if (flags & (uint32_t)mask2) {     /* entering: point + intersection */
+                vu0_callms(VU0_ADDR_VU0_STORE_SCISSOR_WORK);
+                CLIPINTER_INTERPOLATE();
+                vu0_callms(VU0_ADDR_VU0_STORE_SCISSOR_WORK);
+                ret += 2;
+            } else {                                   /* inside */
+                vu0_callms(VU0_ADDR_VU0_STORE_SCISSOR_WORK);
+                ret += 1;
+            }
+        } while (--t3 != 0);
+#undef CLIPINTER_INTERPOLATE
+        vu0_callms(VU0_ADDR_VU0_LOAD_SCISSOR_WORKb);
+        vu0_callms(VU0_ADDR_VU0_STORE_SCISSOR_WORK);
+        return ret;
+    }
+#endif
 
     return ret;
 }

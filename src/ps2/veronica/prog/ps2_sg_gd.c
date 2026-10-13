@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_sg_gd.h"
 #include "../../../ps2/veronica/prog/ps2_dvd_image.h"
 
@@ -51,6 +54,21 @@ Sint32  gdFsGetDirInfo(const char *name, GDFS_DIRINFO *dirinfo)
 
     read_name[i] = 0; 
     
+#ifdef TARGET_PC
+    {   /* a file in the mods folder replaces (or adds) this one (pc/src/audio/adx.c) */
+        int size = pc_mod_file_size(read_name);
+        
+        if (size >= 0) 
+        {
+            dirinfo->fad = 0;
+            dirinfo->fsize = size;
+            dirinfo->flag = 0;
+            
+            return 0;
+        }
+    }
+    
+#endif
     for (i = 0; i < __current_dir->dir_num; i++) 
     {
         if (strcmp(&read_name, __gdfs_dir_ent[i].fname) == 0)
@@ -240,10 +258,26 @@ Sint32  gdFsInit(Sint32 max_open, void *gdfs_work, Sint32 max_dirent, void *dirb
             
             for (loop = 0; loop < 20; loop++) 
             {
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
             }
             
             printf("found_serach %s\n", read_f_name);
@@ -271,10 +305,26 @@ Sint32  gdFsInit(Sint32 max_open, void *gdfs_work, Sint32 max_dirent, void *dirb
                     
                     for (loop = 0; loop < 20; loop++) 
                     {
+#ifndef TARGET_PC
                         asm("nop");
+#else
+                        { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                         asm("nop");
+#else
+                        { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                         asm("nop");
+#else
+                        { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                         asm("nop");
+#else
+                        { /* asm2c */ }
+#endif
                     }
                 }
                 
@@ -411,10 +461,26 @@ Sint32  gdFsRead(GDFS gdfs, Sint32 nsct, void *buf)
         {
             for (loop = 0; loop < 20; loop++) 
             {
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
             }
         }
         

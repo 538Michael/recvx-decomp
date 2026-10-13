@@ -827,6 +827,9 @@ void bhEff136(O_WRK* op)
 // 91.70% matching (matches on GC)
 void bhDraw137(O_WRK* op) 
 {
+#ifdef TARGET_PC
+    if (!pc_overlay_begin(PC_OVL_EFFECT)) return;
+#endif
     NJS_POINT2COL p2c;        
     NJS_POINT2 p[4];         
     NJS_COLOR col[4], uv[4];         
@@ -1009,6 +1012,9 @@ void bhDraw137(O_WRK* op)
     njColorBlendingMode(1, 6);
     
     njPopMatrixEx();
+#ifdef TARGET_PC
+    pc_overlay_end();
+#endif
 }
 
 // 99.80% matching (matches on GC)
@@ -1257,6 +1263,9 @@ void bhEff137(O_WRK* op)
 // 100% matching!
 void bhDraw138(O_WRK* op) 
 {
+#ifdef TARGET_PC
+    if (!pc_overlay_begin(PC_OVL_EFFECT)) return;
+#endif
     NJS_POINT2COL p2c;           
     NJS_POINT2 p[4];     
     NJS_COLOR col[4], uv[4];         
@@ -1612,6 +1621,9 @@ void bhDraw138(O_WRK* op)
     njColorBlendingMode(1, 6);
     
     njPopMatrixEx();
+#ifdef TARGET_PC
+    pc_overlay_end();
+#endif
 }
 
 // 100% matching!

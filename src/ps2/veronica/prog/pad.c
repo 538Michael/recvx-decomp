@@ -272,6 +272,17 @@ void bhSetPad()
         sys->pad_dy = sys->pad_dy / 2; 
     }
     
+#ifdef TARGET_PC
+    if (tps_on)
+    {
+        pad = tps_pad(pad);
+    }
+    
+    pad = knife_pad(pad);
+    pad = menu_pad(pad);
+    pad = trade_pad(pad);   /* co-op trade screen: its input, the player stands still */
+#endif
+    
     sys->pad_ps = pad & ~sys->pad_oncpy; 
     sys->pad_rs = pad ^ (sys->pad_oncpy | sys->pad_ps); 
     

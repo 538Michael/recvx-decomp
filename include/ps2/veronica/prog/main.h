@@ -12,7 +12,11 @@ extern HWS_WORK* hws;
 extern int pd_port;
 extern unsigned char* freemem;
 extern unsigned char* vwbmemp;
+#ifdef TARGET_PC
+extern NJS_TEXMEMLIST tbuf[PC_TEX_ENTRIES];
+#else
 extern NJS_TEXMEMLIST tbuf[256];
+#endif
 extern unsigned char* vebmemp;
 extern unsigned char* keepmem;
 extern BH_PWORK ply;

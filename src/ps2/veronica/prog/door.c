@@ -2073,6 +2073,9 @@ static void LightSubPnt(_door_wrk* dwP, int lgt_no, LGT_WRK* ldP, NJS_POINT3* rt
 // 98.77% matching (matches on GC)
 static void ryExcuteFade(float pri, int col, float rate) 
 {
+#ifdef TARGET_PC
+    if (!pc_overlay_begin(PC_OVL_FADE)) return;
+#endif
 	int pal; 
     unsigned int tmp; 
     static NJS_POINT2 pnt_dat[4] = 
@@ -2107,6 +2110,9 @@ static void ryExcuteFade(float pri, int col, float rate)
         
         njDrawPolygon2D(&p2c, p2c.num, pri, 96);
     }
+#ifdef TARGET_PC
+    pc_overlay_end();
+#endif
 }
 
 // 100% matching!

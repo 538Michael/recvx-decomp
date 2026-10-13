@@ -8,6 +8,15 @@
 #include "../../../ps2/veronica/prog/ps2_NaView.h"
 #include "../../../ps2/veronica/prog/main.h"
 
+#ifdef TARGET_PC
+/* room-model node i in a camera's hide list: a cut camera's list has 512 bits, the PS2 read the
+   fields after it as hide bits of nodes 512 and up (random parts hidden); on the PC such nodes are
+   never hidden. Retail room models have at most 129 nodes (docs/MAPS.md 7). */
+#define HIDE_BIT(flg, i) (((i) < 512) && bhCkFlg(flg, i))
+#else
+#define HIDE_BIT(flg, i) bhCkFlg(flg, i)
+#endif
+
 // 100% matching!
 void bhCheckCut(int flg)
 {
@@ -321,7 +330,7 @@ void bhSetCut(int cno, int flg)
 
         if (obj->model != NULL) 
         {
-            if (bhCkFlg(ci->hidobj, i) != 0)
+            if (HIDE_BIT(ci->hidobj, i) != 0)
             {
                 obj->evalflags |= 0x8;
             }
@@ -582,7 +591,7 @@ void bhSetHideObjLgt(int cno)
         
         if (obj->model != NULL)
         {
-            if (bhCkFlg(ci->hidobj, i) != 0)
+            if (HIDE_BIT(ci->hidobj, i) != 0)
             {
                 obj->evalflags |= 0x8;
             }
@@ -625,7 +634,7 @@ void bhSetHideObject(int offset)
 
             if (obj->model != NULL)
             {
-                if (bhCkFlg(flg, i) != 0)
+                if (HIDE_BIT(flg, i) != 0)
                 {
                     obj->evalflags |= 0x8;
                 }
@@ -646,7 +655,7 @@ void bhSetHideObject(int offset)
     
             if (obj->model != NULL)
             {
-                if (bhCkFlg(flg, i) != 0)
+                if (HIDE_BIT(flg, i) != 0)
                 {
                     obj->evalflags |= 0x8;
                 }
@@ -1205,6 +1214,11 @@ void bhControlActiveCamera()
         else 
         {
             cam.plx += 0.5f * (((float*)plp->exp0)[24] - cam.plx);
+#ifdef TARGET_PC
+            if ((rom->flg & PC_ROOM_SLOPES))   /* the player may stand on a slope: its own y (hitchk.c pc_slope_ground) */
+                cam.ply = plp->py + ci->h;
+            else
+#endif
             cam.ply = rom->grand[plp->flr_no + 2] + ci->h;
             cam.plz += 0.5f * (((float*)plp->exp0)[26] - cam.plz); 
         }
@@ -1815,7 +1829,7 @@ void bhSetEventHideObjLgt(int cno, int kno)
 
         if (obj->model != NULL)
         {
-            if (bhCkFlg(kfp->hidobj, i) != 0)
+            if (HIDE_BIT(kfp->hidobj, i) != 0)
             {
                 obj->evalflags |= 0x8;
             }

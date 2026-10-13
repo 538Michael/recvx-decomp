@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_NaView.h"
 #include "../../../ps2/veronica/prog/ps2_dummy.h"
 #include "../../../ps2/veronica/prog/ps2_NaDraw2D.h"
@@ -39,7 +42,11 @@ void    njSetScreen(NJS_SCREEN *s)
     fNaViwOffsetX = s->cx + 1728.0f; 
     fNaViwOffsetY = s->cy + 1808.0f; 
     
+#ifndef TARGET_PC
     fNaViwHalfW = _nj_screen_.w / 2.0f; 
+#else
+    fNaViwHalfW = _nj_screen_.w / 2.0f * pc_hor_scale();   /* hor+: models are culled at the widened view */
+#endif
     fNaViwHalfH = _nj_screen_.h / 2.0f;
 
     ClipDispW = 2047.0f; 
@@ -247,8 +254,15 @@ void _Make_ClipMatrix(sceVu0FMATRIX sc, float scr, float near, float far)
     
     cv = &ClipVolume; 
     
+#ifndef TARGET_PC
     gsx = (near * cv->x) / scr; 
+#else
+    gsx = (near * cv->x * pc_hor_scale() * pc_clip_guard()) / scr;   /* hor+: widen the clip volume, not the projection */
+#endif
     gsy = (near * cv->y) / scr; 
+#ifdef TARGET_PC
+    gsy *= pc_clip_guard();
+#endif
     
     sceVu0UnitMatrix(mp); 
 
@@ -263,6 +277,7 @@ void _Make_ClipMatrix(sceVu0FMATRIX sc, float scr, float near, float far)
 
     mp2 = &ClipMatrix2[0]; 
     
+#ifndef TARGET_PC
     asm volatile 
     { 
     .set noreorder
@@ -274,12 +289,23 @@ void _Make_ClipMatrix(sceVu0FMATRIX sc, float scr, float near, float far)
 
     .set reorder
     }
+#else
+    { /* asm2c */
+        ee_reg cv_mp2 = {{0}};
+        cv_mp2.sd[0] = (int32_t)(uintptr_t)(mp2);
+        vu_load_vf(24, EE_PTR((cv_mp2.w[0] + (uint32_t)(0))));
+        vu_load_vf(25, EE_PTR((cv_mp2.w[0] + (uint32_t)(16))));
+        vu_load_vf(26, EE_PTR((cv_mp2.w[0] + (uint32_t)(32))));
+        vu_load_vf(27, EE_PTR((cv_mp2.w[0] + (uint32_t)(48))));
+    }
+#endif
 
     fM = ClipScreenMatrix[0];
     
     fw = &ClipDispW; 
     fh = &ClipDispH; 
 
+#ifndef TARGET_PC
     asm volatile 
     { 
     .set noreorder
@@ -292,6 +318,21 @@ void _Make_ClipMatrix(sceVu0FMATRIX sc, float scr, float near, float far)
 
     .set reorder
     }
+#else
+    { /* asm2c */
+        float F8 = 0.0f, F9 = 0.0f;
+        ee_reg cv_fM = {{0}};
+        ee_reg cv_fh = {{0}};
+        ee_reg cv_fw = {{0}};
+        cv_fM.sd[0] = (int32_t)(uintptr_t)(fM);
+        cv_fh.sd[0] = (int32_t)(uintptr_t)(fh);
+        cv_fw.sd[0] = (int32_t)(uintptr_t)(fw);
+        F8 = EE_LWF((cv_fw.w[0] + (uint32_t)(0)));
+        F9 = EE_LWF((cv_fh.w[0] + (uint32_t)(0)));
+        EE_SWF((cv_fM.w[0] + (uint32_t)(44)), F8);
+        EE_SWF((cv_fM.w[0] + (uint32_t)(40)), F9);
+    }
+#endif
 } 
 
 // 100% matching!

@@ -647,6 +647,9 @@ void ItemModelCheck()
                         sc->pos_1.z -= 0.1f;
                     }
                 }
+#ifdef TARGET_PC
+                menu_examine(sc);
+#endif
             } 
             else
             {

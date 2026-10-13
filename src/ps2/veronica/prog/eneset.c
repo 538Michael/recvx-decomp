@@ -151,6 +151,106 @@ JumpEnemy_proc bhJumpEnemy[100] =
 	bhSubpl,
 	bhSubpl
 };
+#ifdef TARGET_PC
+/* Helper code (docs/ENEMIES.md 2.2): the parts and children an enemy spawns get ids 31..38 and
+   run whatever bhEne_SetCallFunc put in bhJumpEnemy[31..38] last - on the PS2 one function per
+   id, so two types using them in one room ran each other's code. Here each child runs the
+   function its own creator's type registered: the creator is the enemy whose code runs when
+   bhSetEnemy takes the slot. Only in rooms the PC added enemies to (pc_enemy_added: the F2
+   spawner, the enemy options), so retail rooms run as on the PS2 (RM_6030 mixes a zombie with
+   moths); a room with one such type calls the same function either way. */
+int pc_enemy_added;
+static JumpEnemy_proc pc_helper[100][8];   /* [creator type][id - 31] */
+static unsigned char pc_owner[128];        /* slot -> creator type + 1; 0: made outside an enemy's code (room load, spawner) */
+static BH_PWORK* pc_running;               /* the enemy whose code runs (bhControlEnemy) */
+
+/* One enemy at a time takes a player. An enemy's code that sets the player's busy flag (flg & 4:
+   grabbed, thrown, hit) owns that player until the flag clears; the others check it before they
+   attack - within a family. Types the PS2 never put in one room do not always: a Black Widow's
+   grab wrote its throw level into a Hunter's hit, Monster Steve's throw read a zombie's grab
+   motions (crashes). So in rooms with added enemies a held player is put back after another
+   enemy's code changed it (its parts and children count as the holder). Per player: co-op runs
+   an enemy against the partner's work (coop_glue.c swaps plp). */
+static struct { BH_PWORK* pl; BH_PWORK* by; } pc_held[2];
+
+static BH_PWORK* pc_root(BH_PWORK* ep)   /* a part's or child's parent enemy */
+{
+    int n;
+    for (n = 0; n < 3 && ep->lkwkp && (BH_PWORK*)ep->lkwkp >= ene && (BH_PWORK*)ep->lkwkp < ene + 128; n++) ep = (BH_PWORK*)ep->lkwkp;
+    return ep;
+}
+
+void pc_enemy_watch(BH_PWORK* ep, int slot, int ran);   /* coop_glue.c */
+void pc_enemy_unhold(BH_PWORK* ep);
+void host_log(const char* fmt, ...);
+
+/* co-op (coop_glue.c grab_in): the host's zombie hands its grab to our game, which puts our player in
+   the grab outside any enemy's code - that zombie is the holder from now on */
+void pc_enemy_holds(BH_PWORK* pl, BH_PWORK* by)
+{
+    int h;
+    for (h = 0; h < 2 && pc_held[h].pl != pl; h++);
+    if (h == 2) h = pc_held[0].by ? 1 : 0;
+    pc_held[h].pl = pl;
+    pc_held[h].by = by;
+}
+
+/* the enemy type whose sounds a request of enemy `slot` plays (sdfunc.c via spawn_glue.c): the enemy
+   whose code runs, else `slot`; 127 outside enemy code is an effect's request (zonzon1.c
+   bhEne_CallEffectSE from the effect's step): the type that made the effect (effect.c). A part or
+   child counts as its creator's type. -1: none */
+int pc_enemy_sound_type(int slot)
+{
+    extern short pc_eff_owner[512][2];
+    BH_PWORK* ep = pc_running ? pc_running : slot >= 0 && slot < 127 ? &ene[slot] : NULL;
+    int o;
+    if (!pc_running && slot == 127)
+        return sys->efnow < 512 && pc_eff_owner[sys->efnow][1] == eff[sys->efnow].id + 1 ? pc_eff_owner[sys->efnow][0] : -1;
+    if (!ep || !(ep->flg & 0x1)) return -1;
+    ep = pc_root(ep);
+    o = pc_owner[ep - ene];
+    return o ? o - 1 : ep->id;
+}
+
+static void pc_call_enemy(BH_PWORK* ep, int slot)
+{
+    JumpEnemy_proc f = bhJumpEnemy[ep->id];
+    int o = slot < 128 ? pc_owner[slot] : 0, h, busy;
+    BH_PWORK* pl = plp;
+    if (pc_enemy_added && ep->id >= 31 && ep->id <= 38 && o && pc_helper[o - 1][ep->id - 31]) f = pc_helper[o - 1][ep->id - 31];
+    pc_running = ep;
+    if (!pc_enemy_added || !pl) {
+        f(ep);
+        pc_running = NULL;
+        return;
+    }
+    for (h = 0; h < 2 && pc_held[h].pl != pl; h++);
+    if (h == 2) {
+        h = pc_held[0].by ? 1 : 0;
+        pc_held[h].pl = pl;
+        pc_held[h].by = NULL;
+    }
+    if (pc_held[h].by && (!(pl->flg & 0x4) || !(pc_held[h].by->flg & 0x1))) pc_held[h].by = NULL;
+    if (pc_held[h].by && pc_root(ep) != pc_root(pc_held[h].by)) {
+        BH_PWORK keep = *pl;
+        f(ep);
+        busy = pl->mode0 != keep.mode0 && (pl->mode0 == 4 || pl->mode0 == 6);   /* it started a grab */
+        *pl = keep;
+        /* refused: a zombie would play its grab on nobody (and its bites would drive the other holder's
+           grab); it lets go as at the end of a grab instead (coop_glue.c) */
+        if (busy && ep->id == 1) {
+            pc_enemy_unhold(ep);
+            host_log("enemies: enemy %d's grab refused, another enemy holds the player: released\n", slot);
+        }
+    } else {
+        busy = pl->flg & 0x4;
+        f(ep);
+        if (!busy && (pl->flg & 0x4)) pc_held[h].by = ep;
+    }
+    pc_running = NULL;
+}
+#endif
+
 CPCL En00CapColTab[5] =
 {
     { 0, 0,   35 },
@@ -266,6 +366,9 @@ BH_PWORK* bhSetEnemy(EGG_WORK* etp, int unused) // second parameter is not prese
             epp->exp2 = NULL;
             
             epp->idx_ct = i;
+#ifdef TARGET_PC
+            if (i < 128) pc_owner[i] = pc_running && pc_running->id < 100 ? pc_running->id + 1 : 0;
+#endif
             
             epp->sxb = 1.0f;
             epp->sx = 1.0f;
@@ -374,8 +477,27 @@ void bhControlEnemy()
                     bhControlMask(ep);
                 }
                 
+#ifdef TARGET_PC
+                /* co-op: the host retargets the enemy, the client animates the host's state */
+                {
+                    int ran = !coop_on || !coop_enemy_begin(ep);
+
+                    if (ran)
+                    {
+                        pc_call_enemy(ep, i);
+                    }
+
+                    if (coop_on)
+                    {
+                        coop_enemy_end(ep);
+                    }
+
+                    pc_enemy_watch(ep, i, ran);   /* coop_glue.c: the frozen-enemy watchdog */
+                }
+#else
                 bhJumpEnemy[ep->id](ep);
-                
+#endif
+
                 bhEne_InitDamage(ep);
                 
                 if ((ep->flg & 0x80000000)) 
@@ -815,6 +937,9 @@ void bhDrawEnemy()
             {
                 if ((sys->st_flg & 0x20))
                 {
+#ifdef TARGET_PC
+                    if (!actor_on || !actor_put_enemy(ep))   /* the character played's cutscene double as another model */
+#endif
                     bhPutModel(ep);
                 }
                 else
@@ -854,6 +979,9 @@ void bhDrawEnemy()
                     } 
                     else 
                     {
+#ifdef TARGET_PC
+                        if (!actor_on || !actor_put_enemy(ep))
+#endif
                         bhPutModel(ep);
                     }
                 }
@@ -908,7 +1036,11 @@ void* bhEne_CallocWork(int size, int param) // second parameter not present on D
     unsigned char* ret_addr; 
     unsigned char* addr;     
 
+#ifdef TARGET_PC
+    if ((&sys->memp[size] - sys->mempb) > 0xC40000 + PC_ARENA_EXTRA)   /* the arena's growth, as bhGetFreeMemory */
+#else
     if ((&sys->memp[size] - sys->mempb) > 0xC40000)
+#endif
     {
         return NULL;
     }
@@ -933,4 +1065,7 @@ void* bhEne_CallocWork(int size, int param) // second parameter not present on D
 void bhEne_SetCallFunc(void(*func)(BH_PWORK*), unsigned int no)
 {
     bhJumpEnemy[no] = func;
+#ifdef TARGET_PC
+    if (pc_running && pc_running->id < 100 && no >= 31 && no <= 38) pc_helper[pc_running->id][no - 31] = func;
+#endif
 }

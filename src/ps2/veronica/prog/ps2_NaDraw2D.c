@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_NaDraw2D.h"
 #include "../../../ps2/veronica/prog/ps2_NaView.h"
 #include "../../../ps2/veronica/prog/ps2_dummy.h"
@@ -16,11 +19,23 @@ void CalcPs2ZbuffAB()
 // 100% matching! 
 void sceVu0ITOF12Vector(sceVu0FVECTOR v0, sceVu0IVECTOR v1)
 {
+#ifndef TARGET_PC
 	asm __volatile__("
 	lqc2    vf4,0x0(%1)
 	vitof12.xyzw vf5,vf4
 	sqc2    vf5,0x0(%0)
 	": : "r" (v0) , "r" (v1));
+#else
+	{ /* asm2c */
+	    ee_reg op0 = {{0}};
+	    ee_reg op1 = {{0}};
+	    op0.sd[0] = (int32_t)(uintptr_t)(v0);
+	    op1.sd[0] = (int32_t)(uintptr_t)(v1);
+	    vu_load_vf(4, EE_PTR((op1.w[0] + (uint32_t)(0))));
+	    vu_upper(U_ITOF12, 15, 5, 4, 0, BC_NONE);
+	    vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 5);
+	}
+#endif
 }
 
 // 100% matching! 
@@ -70,7 +85,11 @@ void	njDrawLine2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr)
         *(int*)&bp[1][2] = p->col[i].argb.b;
         *(int*)&bp[1][3] = (p->col[i].argb.a + 1) >> 1;
         
+        #ifndef TARGET_PC
         bp[2][0] = 1728.0f + p->p[i].x;
+#else
+        bp[2][0] = 1728.0f + pc_overlay_x(p->p[i].x);   /* full-screen overlays: optional stretch */
+#endif
         bp[2][1] = 1808.0f + p->p[i].y;
         bp[2][2] = pri;
         bp[2][3] = 0;
@@ -138,7 +157,11 @@ void	njDrawPolygon2D(NJS_POINT2COL *p, Int n, Float pri, Uint32 attr)
             *(int*)&bp[1][3] = (p->col[i].argb.a + 1) >> 1;
         }
         
+        #ifndef TARGET_PC
         bp[2][0] = 1728.0f + p->p[i].x;
+#else
+        bp[2][0] = 1728.0f + pc_overlay_x(p->p[i].x);   /* full-screen overlays: optional stretch */
+#endif
         bp[2][1] = 1808.0f + p->p[i].y;
         bp[2][2] = pri;
         bp[2][3] = 0;
@@ -231,7 +254,11 @@ void njDrawPolygon2DM(NJS_POINT2COL* p, int n, float pri, unsigned int attr)
             *(int*)&bp[1][3] = (p->col[i].argb.a + 1) >> 1;
         }
         
+        #ifndef TARGET_PC
         bp[2][0] = 1728.0f + p->p[i].x;
+#else
+        bp[2][0] = 1728.0f + pc_overlay_x(p->p[i].x);   /* full-screen overlays: optional stretch */
+#endif
         bp[2][1] = 1808.0f + p->p[i].y;
         bp[2][2] = pri;
         bp[2][3] = 0;

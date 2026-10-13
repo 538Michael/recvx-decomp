@@ -24,14 +24,26 @@ void Ps2SetPlane(PS2_PLANE* p, sceVu0FVECTOR v0, sceVu0FVECTOR v1, sceVu0FVECTOR
     
     sceVu0Normalize(p->norm, tmp0);
 
+#ifndef TARGET_PC
     *(long128*)p->pos = *(long128*)&v0;
+#else
+    /* v0 is a pointer parameter here: &v0 copied the pointer slot and the stack after it (stack
+       addresses as the plane's point, so the cone clip of 3D lines depended on the binary layout) */
+    *(long128*)p->pos = *(long128*)v0;
+#endif
 }
 
 // 98.22% matching
 void Ps2CalcScreenCone()
 {
     sceVu0FVECTOR cp = { 0, 0, 0, 1.0f };
+#ifndef TARGET_PC
 	static const sceVu0FMATRIX pos = { { -320.0f, -240.0f, 0, 1.0f }, { 320.0f, -240.0f, 0, 1.0f }, { 320.0f, 240.0f, 0, 1.0f }, { -320.0f, 240.0f, 0, 1.0f } };
+#else
+    /* hor+: widen the culling cone with the view */
+    float hx = 320.0f * pc_hor_scale();
+    sceVu0FMATRIX pos = { { -hx, -240.0f, 0, 1.0f }, { hx, -240.0f, 0, 1.0f }, { hx, 240.0f, 0, 1.0f }, { -hx, 240.0f, 0, 1.0f } };
+#endif
 
     cp[2] = -_nj_screen_.dist;
 

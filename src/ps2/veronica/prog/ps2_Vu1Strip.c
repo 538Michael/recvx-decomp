@@ -1,8 +1,28 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_Vu1Strip.h"
 #include "../../../ps2/veronica/prog/ps2_NaFog.h"
 #include "../../../ps2/veronica/prog/ps2_NaView.h"
 #include "../../../ps2/veronica/prog/ps2_dummy.h"
 #include "../../../ps2/veronica/prog/main.h"
+
+/* rendering rework: with the native 3D path the strips that end in Ps2AddPrim3DEx are clipped
+   at draw time (pc/glue/native_glue.c pc_native_prim3d), so the CPU scissor is skipped, and a
+   triangle skipped for facing away is marked apart from one skipped for clipping */
+#ifdef TARGET_PC
+#define PC_SCISSOR (!pc_native_3d())
+#define PC_KICK_CULL (pc_native_3d() ? 32769 : 32768)
+#define PC_ADDPRIM3DEX(t, d, n) (pc_native_3d() ? Ps2AddPrim3DExNative(t, d, n, 0) : Ps2AddPrim3DEx(t, d, n))
+#define PC_ADDPRIM3DEX1P(t, d, n) (pc_native_3d() ? Ps2AddPrim3DExNative(t, d, n, 1) : Ps2AddPrim3DEx1P(t, d, n))
+#define PC_ADDPRIM3DEXI(t, d, n) (pc_native_3d() ? Ps2AddPrim3DExNative(t, d, n, 2) : Ps2AddPrim3DExI(t, d, n))
+#else
+#define PC_SCISSOR 1
+#define PC_KICK_CULL 32768
+#define PC_ADDPRIM3DEX Ps2AddPrim3DEx
+#define PC_ADDPRIM3DEX1P Ps2AddPrim3DEx1P
+#define PC_ADDPRIM3DEXI Ps2AddPrim3DExI
+#endif
 
 static SCISSOR_PLANE planeset;
 static SCISSOR scissorflip;
@@ -44,6 +64,7 @@ void vu1SetScreenProjection(float fProjection)
 {
     fVu1Projection = fProjection;
     
+#ifndef TARGET_PC
     asm volatile 
     {
 
@@ -55,6 +76,14 @@ void vu1SetScreenProjection(float fProjection)
         vaddx.z  $vf23, $vf0, $vf4x
         
     }
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}};
+        R8.sd[0] = (int32_t)(ee_f2u((float)(fProjection)));
+        vu_load_vf(4, &R8);
+        vu_upper(U_ADD, 2, 23, 0, 4, BC_X);
+    }
+#endif
     
     _Make_ClipMatrix(ClipMatrix2, fVu1Projection, _fNaViwClipNear, _fNaViwClipFar);
 }
@@ -67,6 +96,7 @@ void vu1SetNearFarClip(float fNear, float fFar)
     
     fVu1InvNearClip = 1.0f / fVu1NearClip;
 
+#ifndef TARGET_PC
     asm volatile 
     {
         
@@ -80,6 +110,17 @@ void vu1SetNearFarClip(float fNear, float fFar)
         vaddx.y  $vf23y, $vf0y, $vf5x
         
     }
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        R8.sd[0] = (int32_t)(ee_f2u((float)(fNear)));
+        R9.sd[0] = (int32_t)(ee_f2u((float)(fFar)));
+        vu_load_vf(4, &R8);
+        vu_load_vf(5, &R9);
+        vu_upper(U_ADD, 8, 23, 0, 4, BC_X);
+        vu_upper(U_ADD, 4, 23, 0, 5, BC_X);
+    }
+#endif
     
     _Make_ClipMatrix(ClipMatrix2, fVu1Projection, _fNaViwClipNear, _fNaViwClipFar);
 }
@@ -90,6 +131,7 @@ void vu1SetScreenOffset(float fOffsetX, float fOffsetY)
     fVu1OffsetX = fOffsetX;
     fVu1OffsetY = fOffsetY;
     
+#ifndef TARGET_PC
     asm volatile 
     {
         
@@ -103,6 +145,17 @@ void vu1SetScreenOffset(float fOffsetX, float fOffsetY)
         vaddx.y  $vf16, $vf0, $vf5x
         
     }
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        R8.sd[0] = (int32_t)(ee_f2u((float)(fOffsetX)));
+        R9.sd[0] = (int32_t)(ee_f2u((float)(fOffsetY)));
+        vu_load_vf(4, &R8);
+        vu_load_vf(5, &R9);
+        vu_upper(U_ADD, 8, 16, 0, 4, BC_X);
+        vu_upper(U_ADD, 4, 16, 0, 5, BC_X);
+    }
+#endif
 }
 
 // 100% matching!
@@ -111,6 +164,7 @@ void vu1SetScreenAspect(float fAspectW, float fAspectH)
     fVu1AspectW = fAspectW;
     fVu1AspectH = fAspectH;
 
+#ifndef TARGET_PC
     asm volatile 
     {
         
@@ -124,6 +178,17 @@ void vu1SetScreenAspect(float fAspectW, float fAspectH)
         vaddx.y  $vf17y, $vf0y, $vf5x
         
     }
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        R8.sd[0] = (int32_t)(ee_f2u((float)(fAspectW)));
+        R9.sd[0] = (int32_t)(ee_f2u((float)(fAspectH)));
+        vu_load_vf(4, &R8);
+        vu_load_vf(5, &R9);
+        vu_upper(U_ADD, 8, 17, 0, 4, BC_X);
+        vu_upper(U_ADD, 4, 17, 0, 5, BC_X);
+    }
+#endif
 }
 
 // 100% matching!
@@ -133,6 +198,7 @@ void vu1SetDiffuseMaterial(VU1_COLOR* pDiffuse)
     vu1Diffuse.fG = 128.0f * pDiffuse->fG;
     vu1Diffuse.fB = 128.0f * pDiffuse->fB;
     
+#ifndef TARGET_PC
     asm volatile 
     ("
         lq         t3, VU1_COLOR.fR(%0)
@@ -151,6 +217,25 @@ void vu1SetDiffuseMaterial(VU1_COLOR* pDiffuse)
         vaddx.xyzw $vf20, $vf4, $vf0x 
     " : : "r"(pDiffuse), "f"(128.0f) : "t0"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pDiffuse);
+        op1.f[0] = (float)(128.0f);
+        ee_lq(&R11, (op0.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR))));
+        R8.sd[0] = (int32_t)(ee_f2u(op1.f[0]));
+        R9.sd[0] = (int32_t)(ee_f2u(op1.f[0]));
+        R10.sd[0] = (int32_t)(ee_f2u(op1.f[0]));
+        ee_pextlw(&R8, &R9, &R8);
+        ee_pcpyld(&R8, &R10, &R8);
+        vu_load_vf(4, &R11);
+        vu_load_vf(5, &R8);
+        vu_upper(U_MUL, 14, 4, 4, 5, BC_NONE);
+        vu_upper(U_ADD, 15, 20, 4, 0, BC_X);
+    }
+#endif
 }
 
 // 100% matching!
@@ -160,6 +245,7 @@ void vu1SetSpeculaMaterial(VU1_COLOR* pSpecula)
     vu1Specula.fG = 31.0f * pSpecula->fG;
     vu1Specula.fB = 31.0f * pSpecula->fB;
     
+#ifndef TARGET_PC
     asm volatile 
     ("
         mfc1       t0, %0
@@ -176,6 +262,22 @@ void vu1SetSpeculaMaterial(VU1_COLOR* pSpecula)
         vaddx.xyzw $vf21, $vf4, $vf0x 
     " : : "f"(31.0f) : "t0", "t1", "t2"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+        ee_reg op0 = {{0}};
+        op0.f[0] = (float)(31.0f);
+        R8.sd[0] = (int32_t)(ee_f2u(op0.f[0]));
+        R9.sd[0] = (int32_t)(ee_f2u(op0.f[0]));
+        R10.sd[0] = (int32_t)(ee_f2u(op0.f[0]));
+        ee_pextlw(&R8, &R9, &R8);
+        ee_pcpyld(&R8, &R10, &R8);
+        vu_load_vf(4, &R11);
+        vu_load_vf(5, &R8);
+        vu_upper(U_MUL, 14, 4, 4, 5, BC_NONE);
+        vu_upper(U_ADD, 15, 21, 4, 0, BC_X);
+    }
+#endif
 }
 
 // 100% matching!
@@ -185,11 +287,19 @@ void vu1SetAmbient(VU1_COLOR* pAmbient)
     vu1Ambient.fG = pAmbient->fG;
     vu1Ambient.fB = pAmbient->fB;
     
+#ifndef TARGET_PC
     asm volatile
     ("
         lqc2 vf22, VU1_COLOR.fR(%0)
     " : : "r"(pAmbient) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pAmbient);
+        vu_load_vf(22, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+    }
+#endif
 }
 
 // 100% matching!
@@ -197,6 +307,7 @@ void vu1SetAlphaRatio(float fAlpha)
 {
     fVu1AlphaRatio = 128.0f * fAlpha;
 
+#ifndef TARGET_PC
     asm volatile 
     ("
 
@@ -207,6 +318,16 @@ void vu1SetAlphaRatio(float fAlpha)
 
     " : : "f"(fVu1AlphaRatio) : "t0"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}};
+        ee_reg op0 = {{0}};
+        op0.f[0] = (float)(fVu1AlphaRatio);
+        R8.sd[0] = (int32_t)(ee_f2u(op0.f[0]));
+        vu_load_vf(4, &R8);
+        vu_upper(U_MUL, 1, 23, 0, 4, BC_X);
+    }
+#endif
 }
 
 #include "ps2_Vu1Scissor2.c"
@@ -217,6 +338,7 @@ void InitNodeArraySet(SCISSOR* scissor)
     scissor->rotflag = 0;
     scissor->flipflag = 0;
 
+#ifndef TARGET_PC
     asm volatile 
     ("
         add  t0, zero, %0
@@ -235,6 +357,23 @@ void InitNodeArraySet(SCISSOR* scissor)
         sw   t2, SCISSOR_NODE.nodeNum(%0)
     " : : "r"(scissor) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}};
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(scissor);
+        R8.sd[0] = (int32_t)(ee_zero.w[0] + op0.w[0]);
+        R10.sd[0] = (int32_t)(ee_zero.w[0] + (uint32_t)(3));
+        R8.sd[0] = (int32_t)(R8.w[0] + (uint32_t)(offsetof(SCISSOR, narray)));
+        R9.sd[0] = (int32_t)(R8.w[0] + (uint32_t)((sizeof(SCISSOR_NODE))));
+        EE_SW((op0.w[0] + (uint32_t)(offsetof(SCISSOR, in))), R8.d[0]);
+        EE_SW((op0.w[0] + (uint32_t)(offsetof(SCISSOR, out))), R9.d[0]);
+        EE_SW((R8.w[0] + (uint32_t)(offsetof(SCISSOR_NODE, nodeNum))), ee_zero.d[0]);
+        EE_SW((R9.w[0] + (uint32_t)(offsetof(SCISSOR_NODE, nodeNum))), ee_zero.d[0]);
+        EE_SW((op0.w[0] + (uint32_t)(offsetof(SCISSOR_NODE, nodeNum))), R10.d[0]);
+    }
+#endif
 }
 
 // 100% matching!
@@ -268,6 +407,7 @@ void _Init_ScissorSystem()
 // 100% matching! 
 int _Clip_ViewVolume(float* clip, float local_clip[4], float* vertex)
 {
+#ifndef TARGET_PC
     asm volatile
     ("
         lqc2         vf4, 0(%1)
@@ -290,11 +430,30 @@ int _Clip_ViewVolume(float* clip, float local_clip[4], float* vertex)
         cfc2         v0, vi18
     " : : "r"(clip), "r"(vertex) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R2 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(clip);
+        op1.sd[0] = (int32_t)(uintptr_t)(vertex);
+        vu_load_vf(4, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_upper(U_MULA, 15, 0, 24, 4, BC_X);
+        vu_upper(U_MADDA, 15, 0, 25, 4, BC_Y);
+        vu_upper(U_MADDA, 15, 0, 26, 4, BC_Z);
+        vu_upper(U_MADD, 15, 5, 27, 0, BC_W);
+        vu_clipw(5, 5);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 5);
+        R2.sd[0] = (int32_t)(vu_cfc2(18));
+        return R2.sw[0]; /* the asm returned in v0 */
+    }
+#endif
 }
 
 // 100% matching!
 void PushTriangleNodeArray(SCISSOR* scissor, NODE* nod)
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         move   v1, %1
@@ -335,6 +494,40 @@ void PushTriangleNodeArray(SCISSOR* scissor, NODE* nod)
         sw     t0, SCISSOR.rotflag(%0)
     " : : "r"(scissor), "r"(&node) : "v1"
     );
+#else
+    { /* asm2c */
+        ee_reg R1 = {{0}}, R3 = {{0}}, R8 = {{0}}, R9 = {{0}}, R10 = {{0}};
+        uint64_t ee_prod;
+        ee_reg ee_lo = {{0}}, ee_hi = {{0}};
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(scissor);
+        op1.sd[0] = (int32_t)(uintptr_t)(&node);
+        R3.d[0] = op1.d[0];
+        R8.sd[0] = EE_LW((op0.w[0] + (uint32_t)(offsetof(SCISSOR, rotflag))));
+        R1.sd[0] = ee_zero.sd[0] + (int64_t)((sizeof(NODE)));
+        ee_prod = (uint64_t)((int64_t)(int32_t)R8.w[0] * (int64_t)(int32_t)R1.w[0]);
+        ee_lo.sd[0] = (int32_t)(uint32_t)ee_prod; ee_hi.sd[0] = (int32_t)(uint32_t)(ee_prod >> 32);
+        R9.d[0] = ee_lo.d[0];
+        R8.sd[0] = (int32_t)(R8.w[0] + (uint32_t)(1));
+        R9.sd[0] = (int32_t)(R9.w[0] + op0.w[0]);
+        R8.d[0] = R8.d[0] & (uint64_t)(uint16_t)(3);
+        vu_load_vf(4, EE_PTR((R3.w[0] + (uint32_t)(offsetof(NODE, vertex)))));
+        vu_load_vf(5, EE_PTR((R3.w[0] + (uint32_t)(offsetof(NODE, color)))));
+        vu_load_vf(6, EE_PTR((R3.w[0] + (uint32_t)(offsetof(NODE, texUV)))));
+        vu_load_vf(7, EE_PTR((R3.w[0] + (uint32_t)(offsetof(NODE, clipV)))));
+        vu_store_vf(EE_PTR((R9.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].vertex)))), 4);
+        vu_store_vf(EE_PTR((R9.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].color)))), 5);
+        vu_store_vf(EE_PTR((R9.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].texUV)))), 6);
+        vu_store_vf(EE_PTR((R9.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].clipV)))), 7);
+        R10.sd[0] = (int32_t)(R8.w[0] + (uint32_t)(-3));
+        if (R10.sd[0] < 0) goto l_002D4150;
+        R8.sd[0] = (int32_t)(0u - ee_zero.w[0]);
+    l_002D4150:;
+        EE_SW((op0.w[0] + (uint32_t)(offsetof(SCISSOR, rotflag))), R8.d[0]);
+    }
+#endif
 }
 
 // 100% matching!
@@ -342,6 +535,7 @@ void ResetNodeArraySet(SCISSOR* scissor)
 {
     scissor->flipflag = 0;
 
+#ifndef TARGET_PC
     asm volatile 
     ("
         add  t0, zero, %0
@@ -358,8 +552,100 @@ void ResetNodeArraySet(SCISSOR* scissor)
         sw   zero, SCISSOR_NODE.nodeNum(t1)
     " : : "r"(scissor) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}};
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(scissor);
+        R8.sd[0] = (int32_t)(ee_zero.w[0] + op0.w[0]);
+        R10.sd[0] = (int32_t)(ee_zero.w[0] + (uint32_t)(3));
+        R8.sd[0] = (int32_t)(R8.w[0] + (uint32_t)(offsetof(SCISSOR, narray)));
+        R9.sd[0] = (int32_t)(R8.w[0] + (uint32_t)((sizeof(SCISSOR_NODE))));
+        EE_SW((op0.w[0] + (uint32_t)(offsetof(SCISSOR, in))), R8.d[0]);
+        EE_SW((op0.w[0] + (uint32_t)(offsetof(SCISSOR, out))), R9.d[0]);
+        EE_SW((R8.w[0] + (uint32_t)(offsetof(SCISSOR_NODE, nodeNum))), ee_zero.d[0]);
+        EE_SW((R9.w[0] + (uint32_t)(offsetof(SCISSOR_NODE, nodeNum))), ee_zero.d[0]);
+    }
+#endif
 }
 
+#ifdef TARGET_PC
+/* The retail ScissorTriangle (0x2D4190) is one hand-written asm function; the decomp's
+   per-block asm has inconsistent operands, so this is a direct C translation of retail.
+   Sutherland-Hodgman against each enabled plane: clip flags of curr (bits 6-11) and
+   next (bits 0-5) from VCLIPW, intersection parameter along the plane's axis. */
+static int ScissorClipFlags(const float* v)
+{
+    float w = fabsf(v[3]);
+    int f = 0;
+    for (int c = 0; c < 3; c++) {
+        if (v[c] > w) f |= 1 << (c * 2);
+        if (v[c] < -w) f |= 2 << (c * 2);
+    }
+    return f;
+}
+
+static void ScissorIntersect(NODE* inter, const NODE* in, const NODE* out, float sgn, int xyz)
+{
+    float a[4], b[4], t;
+    for (int c = 0; c < 4; c++) {
+        a[c] = fabsf(in->clipV[c] - in->clipV[3] * sgn);
+        b[c] = fabsf(out->clipV[c] - out->clipV[3] * sgn);
+    }
+    /* PROT3W xyz times: x <- component xyz % 3 */
+    t = fabsf(a[xyz % 3] / (b[xyz % 3] + a[xyz % 3]));
+    for (int c = 0; c < 4; c++) {
+        inter->clipV[c] = in->clipV[c] + (out->clipV[c] - in->clipV[c]) * t;
+        inter->vertex[c] = (out->vertex[c] - in->vertex[c]) * t + in->vertex[c];
+        inter->color[c] = (out->color[c] - in->color[c]) * t + in->color[c];
+        inter->texUV[c] = (out->texUV[c] - in->texUV[c]) * t + in->texUV[c];
+    }
+    if (inter->vertex[2] < 1.0f) inter->vertex[2] = 1.0f;
+}
+
+void ScissorTriangle(SCISSOR* scissor, SCISSOR_PLANE* plane_set)
+{
+    SCISSOR_NODE* inarray = &scissor->triangle;
+    SCISSOR_NODE* outarray = scissor->out;
+    unsigned int i, j;
+
+    for (i = 0; i < plane_set->planeNum; i++) {
+        unsigned int flag = plane_set->plane[i].xyzflag;
+        int mask = plane_set->plane[i].clipmask;
+        int xyz = flag & 0xF;
+        float sgn = (flag & 0x10) ? -1.0f : 1.0f;
+
+        for (j = 0; j < inarray->nodeNum; j++) {
+            NODE* currN = &inarray->node[j];
+            NODE* nextN = &inarray->node[(j + 1 < inarray->nodeNum) ? j + 1 : 0];
+            int clip = ((ScissorClipFlags(currN->clipV) << 6) | ScissorClipFlags(nextN->clipV)) & mask;
+            NODE interN;
+
+            if (clip == 0) {
+                outarray->node[outarray->nodeNum++] = *currN;
+            } else if ((clip & 0x3F) && !(clip & 0xFC0)) {
+                ScissorIntersect(&interN, currN, nextN, sgn, xyz);
+                outarray->node[outarray->nodeNum++] = *currN;
+                outarray->node[outarray->nodeNum++] = interN;
+            } else if (!(clip & 0x3F) && (clip & 0xFC0)) {
+                ScissorIntersect(&interN, nextN, currN, sgn, xyz);
+                outarray->node[outarray->nodeNum++] = interN;
+            }
+        }
+
+        {
+            unsigned int old = scissor->flipflag;
+            scissor->flipflag = (old + 1) & 1;
+            scissor->out = &scissor->narray[old];
+            scissor->in = &scissor->narray[scissor->flipflag];
+            scissor->out->nodeNum = 0;
+            inarray = scissor->in;
+            outarray = scissor->out;
+        }
+    }
+}
+#else
 // 100% matching! 
 void ScissorTriangle(SCISSOR* scissor, SCISSOR_PLANE* plane_set)
 {
@@ -421,7 +707,7 @@ void ScissorTriangle(SCISSOR* scissor, SCISSOR_PLANE* plane_set)
         
             mtc1        v0, %0
         " : "=r"(sgn) : "r"(plane_set), "r"(&mask), "r"(&xyz), "r"(&i) :
-        ); 
+        );
         
         for (j = 0; j < inarray->nodeNum; j++) 
         {
@@ -761,6 +1047,7 @@ void ScissorTriangle(SCISSOR* scissor, SCISSOR_PLANE* plane_set)
         outarray = scissor->out;
     }
 }
+#endif
 
 // 100% matching!
 int _Check_DisplayAreaPoint(NJS_VECTOR* vec)
@@ -781,6 +1068,7 @@ void DrawScissorPolygonOpaque(SCISSOR* scissor, unsigned long ulType)
 
     in = scissor->in;
     
+#ifndef TARGET_PC
     asm volatile
     ("
         addi     t6, %0, SCISSOR.in
@@ -834,6 +1122,40 @@ void DrawScissorPolygonOpaque(SCISSOR* scissor, unsigned long ulType)
         vnop
     " : : "r"(scissor), "r"(vu1ScessorBuf) : "t7"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R14 = {{0}}, R15 = {{0}};
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(scissor);
+        op1.sd[0] = (int32_t)(uintptr_t)(vu1ScessorBuf);
+        R14.sd[0] = (int32_t)(op0.w[0] + (uint32_t)(offsetof(SCISSOR, in)));
+        R14.sd[0] = EE_LW((R14.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0]))));
+        R15.sd[0] = (int32_t)(ee_zero.w[0] + op1.w[0]);
+        R8.sd[0] = EE_LW((R14.w[0] + (uint32_t)(offsetof(SCISSOR_NODE, nodeNum))));
+    l_002D4720:;
+        vu_load_vf(4, EE_PTR((R14.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].vertex)))));
+        vu_div(0, 3, 4, 2);
+        vu_load_vf(7, EE_PTR((R14.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].color)))));
+        vu_store_vf(EE_PTR((R15.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 7);
+        vu_upper(U_ADD, 8, 5, 0, 23, BC_Z);
+        vu_load_vf(6, EE_PTR((R14.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].texUV)))));
+        R8.sd[0] = (int32_t)(R8.w[0] + (uint32_t)(-1));
+        vu_upper(U_MUL, 8, 5, 5, 0, BC_Q);
+        vu_upper(U_MUL, 12, 6, 6, 0, BC_Q);
+        vu_upper(U_ADD, 2, 6, 0, 0, BC_Q);
+        vu_upper(U_SUB, 1, 6, 6, 6, BC_NONE);
+        vu_upper(U_MUL, 12, 4, 4, 5, BC_X);
+        vu_store_vf(EE_PTR((R15.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fS)))), 6);
+        vu_upper(U_MUL, 12, 4, 4, 17, BC_NONE);
+        vu_upper(U_ADD, 12, 4, 4, 16, BC_NONE);
+        R14.sd[0] = (int32_t)(R14.w[0] + (uint32_t)((sizeof(NODE))));
+        vu_store_vf(EE_PTR((R15.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fX)))), 4);
+        R15.sd[0] = (int32_t)(R15.w[0] + (uint32_t)((sizeof(VU1_PRIM_BUF))));
+        if (R8.sd[0] != 0) goto l_002D4720;
+    }
+#endif
 
     ulType = (ulType & 0xFFFDFFFFFFFFFFFF) | 0x6800000000000;
     
@@ -938,9 +1260,9 @@ void vu1DrawTriangleStripOpaqueSingle(unsigned long ulType, VU1_STRIP_BUF* pStri
         
         if ((0 < pS0->fNz) && (0 < pS1->fNz) && (0 < pS2->fNz))  
         {
-            pP->ulKick = 32768;
+            pP->ulKick = PC_KICK_CULL;
         }
-        else if (((flg & 0x7)) && ((clipflag & 0x3FFFF)))
+        else if (PC_SCISSOR && ((flg & 0x7)) && ((clipflag & 0x3FFFF)))
         {
             pP->ulKick = 32768;
             
@@ -960,7 +1282,7 @@ void vu1DrawTriangleStripOpaqueSingle(unsigned long ulType, VU1_STRIP_BUF* pStri
         flg <<= 1;
     }
     
-    Ps2AddPrim3DEx(ulType, Ps2_DRAW_TMP, usStripMax);
+    PC_ADDPRIM3DEX(ulType, Ps2_DRAW_TMP, usStripMax);
 }
 
 // 100% matching! 
@@ -1054,7 +1376,7 @@ void vu1DrawTriangleStripOpaqueDouble(unsigned long ulType, VU1_STRIP_BUF* pS, u
         
         clipflag = _Get_ClipViewVolume2();
         
-        if (((flg & 0x7)) && ((clipflag & 0x3FFFF)))
+        if (PC_SCISSOR && ((flg & 0x7)) && ((clipflag & 0x3FFFF)))
         {
             pP->ulKick = 32768;
             
@@ -1074,7 +1396,7 @@ void vu1DrawTriangleStripOpaqueDouble(unsigned long ulType, VU1_STRIP_BUF* pS, u
         flg <<= 1;
     }
     
-    Ps2AddPrim3DEx(ulType, Ps2_DRAW_TMP, usStripMax);
+    PC_ADDPRIM3DEX(ulType, Ps2_DRAW_TMP, usStripMax);
 }
 
 // 100% matching! 
@@ -1173,9 +1495,9 @@ void vu1DrawTriangleStripTransSingle(unsigned long ulType, VU1_STRIP_BUF* pStrip
         
         if ((0 < pS0->fNz) && (0 < pS1->fNz) && (0 < pS2->fNz))  
         {
-            pP->ulKick = 32768;
+            pP->ulKick = PC_KICK_CULL;
         }
-        else if (((flg & 0x7)) && ((clipflag & 0x3FFFF)))
+        else if (PC_SCISSOR && ((flg & 0x7)) && ((clipflag & 0x3FFFF)))
         {
             pP->ulKick = 32768;
             
@@ -1195,7 +1517,7 @@ void vu1DrawTriangleStripTransSingle(unsigned long ulType, VU1_STRIP_BUF* pStrip
         flg <<= 1;
     }
     
-    Ps2AddPrim3DEx(ulType, Ps2_DRAW_TMP, usStripMax);
+    PC_ADDPRIM3DEX(ulType, Ps2_DRAW_TMP, usStripMax);
 }
 
 // 99.38% matching
@@ -1205,7 +1527,11 @@ int _Clip_Screen(float* clip)
     static float para[2][4] = { 2048.0f, 2048.0f, 0, 240.0f, 0.75f, 1.0f, 0, 0 }; 
 
     ret = 0;
+#ifdef TARGET_PC
+    para[1][0] = 0.75f / pc_hor_scale();   /* hor+: effects (njDrawTexture3DEx) are culled at the widened view */
+#endif
 
+#ifndef TARGET_PC
     asm volatile
     ("
         lqc2       vf4, 0(%1)
@@ -1226,6 +1552,24 @@ int _Clip_Screen(float* clip)
         cfc2       %0, vi18
     " : "=r"(ret) : "f"(clip), "r"(&para) :
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(ret);
+        op1.sd[0] = (int32_t)(uintptr_t)(clip); /* decomp declares this operand "f" but it is the clip-vector pointer */
+        op2.sd[0] = (int32_t)(uintptr_t)(&para);
+        vu_load_vf(4, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op2.w[0] + (uint32_t)(0))));
+        vu_load_vf(6, EE_PTR((op2.w[0] + (uint32_t)(16))));
+        vu_upper(U_SUB, 12, 4, 4, 5, BC_NONE);
+        vu_upper(U_MUL, 15, 4, 4, 6, BC_NONE);
+        vu_clipw(4, 5);
+        op0.sd[0] = (int32_t)(vu_cfc2(18));
+        ret = (__typeof__(ret))(uintptr_t)op0.w[0];
+    }
+#endif
 
     return ret;
 }
@@ -1245,6 +1589,7 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
     
     clipflag = 0;
     
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder
@@ -1259,11 +1604,25 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
     .set reorder
     " : "r"(usMode) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R2 = {{0}}, R8 = {{0}};
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(usMode);
+        R2.d[0] = op0.d[0] & (uint64_t)(uint16_t)(15);
+        R8.sd[0] = (int32_t)(ee_zero.w[0] + R2.w[0]);
+        vu_ctc2(1, R8.w[0]);
+        vu0_callms(VU0_ADDR_VU0_INIT_CALC_COLOR);
+        usMode = (__typeof__(usMode))(uintptr_t)op0.w[0];
+    }
+#endif
    
     pP = (VU1_PRIM_BUF*)Ps2_DRAW_TMP; 
     
     if (clipswitch == 0) 
     { 
+#ifndef TARGET_PC
         asm volatile
         ("
         .set noreorder
@@ -1299,10 +1658,46 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
             swc1    f5, VU1_PRIM_BUF.fY(%3) 
         .set reorder
         " : : "f"(fVu1OffsetX), "f"(fVu1OffsetY), "r"(pS), "r"(pP) : "$f1", "$f2", "$f3", "$f4", "$f5", "$t0", "memory"
-        );  
+        );
+#else
+        { /* asm2c */
+            ee_reg R8 = {{0}};
+            float F1 = 0.0f, F2 = 0.0f, F3 = 0.0f, F4 = 0.0f, F5 = 0.0f;
+            const ee_reg ee_zero = {{0}};
+            ee_reg op0 = {{0}};
+            ee_reg op1 = {{0}};
+            ee_reg op2 = {{0}};
+            ee_reg op3 = {{0}};
+            op0.f[0] = (float)(fVu1OffsetX);
+            op1.f[0] = (float)(fVu1OffsetY);
+            op2.sd[0] = (int32_t)(uintptr_t)(pS);
+            op3.sd[0] = (int32_t)(uintptr_t)(pP);
+            vu_load_vf(4, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+            vu_load_vf(14, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fVx)))));
+            vu0_callms(VU0_ADDR_VU0_CALC_COLOR);
+            F1 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fU))));
+            F2 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fV))));
+            F3 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIz))));
+            ee_lq(&R8, (op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fVx))));
+            F4 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fSx))));
+            F5 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fSy))));
+            F1 = vu_clampf(F1 * F3);
+            F2 = vu_clampf(F2 * F3);
+            F4 = vu_clampf(F4 + op0.f[0]);
+            F5 = vu_clampf(F5 + op1.f[0]);
+            ee_sq((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fX))), &R8);
+            EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fS))), F1);
+            EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fT))), F2);
+            EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fQ))), F3);
+            EE_SW((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, ulKick))), ee_zero.d[0]);
+            EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fX))), F4);
+            EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fY))), F5);
+        }
+#endif  
             
         flg = _Check_DisplayAreaPoint((NJS_VECTOR*)&pP->fX) << 2;
         
+#ifndef TARGET_PC
         asm volatile 
         ("
             qmfc2.i t0, vf4    
@@ -1310,10 +1705,20 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
             sq      t0, VU1_PRIM_BUF.fR(%0) 
         " : : "r"(pP) : "$t0", "memory" 
         );
+#else
+        { /* asm2c */
+            ee_reg R8 = {{0}};
+            ee_reg op0 = {{0}};
+            op0.sd[0] = (int32_t)(uintptr_t)(pP);
+            vu_store_vf(&R8, 4);
+            ee_sq((op0.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR))), &R8);
+        }
+#endif
         
         pP++; 
         pS++; 
         
+#ifndef TARGET_PC
         asm volatile 
         (" 
         .set noreorder
@@ -1350,9 +1755,45 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
         .set reorder
         " : : "f"(fVu1OffsetX), "f"(fVu1OffsetY), "r"(pS), "r"(pP) : "$f1", "$f2", "$f3", "$f4", "$f5", "$t0", "memory"
         );
+#else
+        { /* asm2c */
+            ee_reg R8 = {{0}};
+            float F1 = 0.0f, F2 = 0.0f, F3 = 0.0f, F4 = 0.0f, F5 = 0.0f;
+            const ee_reg ee_zero = {{0}};
+            ee_reg op0 = {{0}};
+            ee_reg op1 = {{0}};
+            ee_reg op2 = {{0}};
+            ee_reg op3 = {{0}};
+            op0.f[0] = (float)(fVu1OffsetX);
+            op1.f[0] = (float)(fVu1OffsetY);
+            op2.sd[0] = (int32_t)(uintptr_t)(pS);
+            op3.sd[0] = (int32_t)(uintptr_t)(pP);
+            vu_load_vf(4, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+            vu_load_vf(14, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fVx)))));
+            vu0_callms(VU0_ADDR_VU0_CALC_COLOR);
+            F1 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fU))));
+            F2 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fV))));
+            F3 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIz))));
+            ee_lq(&R8, (op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fVx))));
+            F4 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fSx))));
+            F5 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fSy))));
+            F1 = vu_clampf(F1 * F3);
+            F2 = vu_clampf(F2 * F3);
+            F4 = vu_clampf(F4 + op0.f[0]);
+            F5 = vu_clampf(F5 + op1.f[0]);
+            ee_sq((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fX))), &R8);
+            EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fS))), F1);
+            EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fT))), F2);
+            EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fQ))), F3);
+            EE_SW((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, ulKick))), ee_zero.d[0]);
+            EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fX))), F4);
+            EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fY))), F5);
+        }
+#endif
         
         flg |= _Check_DisplayAreaPoint((NJS_VECTOR*)&pP->fX) << 1; 
         
+#ifndef TARGET_PC
         asm volatile 
         ("
             qmfc2.i t0, vf4    
@@ -1360,12 +1801,22 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
             sq      t0, VU1_PRIM_BUF.fR(%0) 
         " : : "r"(pP) : "$t0", "memory" 
         );
+#else
+        { /* asm2c */
+            ee_reg R8 = {{0}};
+            ee_reg op0 = {{0}};
+            op0.sd[0] = (int32_t)(uintptr_t)(pP);
+            vu_store_vf(&R8, 4);
+            ee_sq((op0.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR))), &R8);
+        }
+#endif
         
         pP++; 
         pS++;
         
         for (usStripCnt = 2; usStripCnt < usStripMax; usStripCnt++, pS++, pP++) 
         {
+#ifndef TARGET_PC
             asm volatile 
             (" 
             .set noreorder
@@ -1402,9 +1853,45 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
             .set reorder
             " : : "f"(fVu1OffsetX), "f"(fVu1OffsetY), "r"(pS), "r"(pP) : "$f1", "$f2", "$f3", "$f4", "$f5", "$t0", "memory"
             );
+#else
+            { /* asm2c */
+                ee_reg R8 = {{0}};
+                float F1 = 0.0f, F2 = 0.0f, F3 = 0.0f, F4 = 0.0f, F5 = 0.0f;
+                const ee_reg ee_zero = {{0}};
+                ee_reg op0 = {{0}};
+                ee_reg op1 = {{0}};
+                ee_reg op2 = {{0}};
+                ee_reg op3 = {{0}};
+                op0.f[0] = (float)(fVu1OffsetX);
+                op1.f[0] = (float)(fVu1OffsetY);
+                op2.sd[0] = (int32_t)(uintptr_t)(pS);
+                op3.sd[0] = (int32_t)(uintptr_t)(pP);
+                vu_load_vf(4, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+                vu_load_vf(14, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fVx)))));
+                vu0_callms(VU0_ADDR_VU0_CLIP_VIEW_VOLUME_ALL);
+                F1 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fU))));
+                F2 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fV))));
+                F3 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIz))));
+                ee_lq(&R8, (op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fVx))));
+                F4 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fSx))));
+                F5 = EE_LWF((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fSy))));
+                F1 = vu_clampf(F1 * F3);
+                F2 = vu_clampf(F2 * F3);
+                F4 = vu_clampf(F4 + op0.f[0]);
+                F5 = vu_clampf(F5 + op1.f[0]);
+                ee_sq((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fX))), &R8);
+                EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fS))), F1);
+                EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fT))), F2);
+                EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fQ))), F3);
+                EE_SW((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, ulKick))), ee_zero.d[0]);
+                EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fX))), F4);
+                EE_SWF((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fY))), F5);
+            }
+#endif
                 
             flg |= _Check_DisplayAreaPoint((NJS_VECTOR*)&pP->fX); 
             
+#ifndef TARGET_PC
             asm volatile 
             ("
                 qmfc2.i t0, vf4     
@@ -1416,8 +1903,22 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
                 addi    %0, %0, 0
             " : "=r"(clipflag) : "r"(pP) : "$t0" 
             );
+#else
+            { /* asm2c */
+                ee_reg R8 = {{0}};
+                ee_reg op0 = {{0}};
+                ee_reg op1 = {{0}};
+                op0.sd[0] = (int32_t)(uintptr_t)(clipflag);
+                op1.sd[0] = (int32_t)(uintptr_t)(pP);
+                vu_store_vf(&R8, 4);
+                ee_sq((op1.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR))), &R8);
+                op0.sd[0] = (int32_t)(vu_cfc2(18));
+                op0.sd[0] = (int32_t)(op0.w[0] + (uint32_t)(0));
+                clipflag = (__typeof__(clipflag))(uintptr_t)op0.w[0];
+            }
+#endif
 
-            if ((flg != 0) && ((clipflag & 0x3FFFF)))
+            if (PC_SCISSOR && (flg != 0) && ((clipflag & 0x3FFFF)))
             { 
                 pP->ulKick = 32768; 
                 
@@ -1439,6 +1940,7 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
     }
     else
     {
+#ifndef TARGET_PC
         asm volatile 
         ("
         .set noreorder
@@ -1448,7 +1950,15 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
             nop
         .set reorder
         " : : "r"(pS) : 
-        );   
+        );
+#else
+        { /* asm2c */
+            ee_reg op0 = {{0}};
+            op0.sd[0] = (int32_t)(uintptr_t)(pS);
+            vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+            vu0_callms(VU0_ADDR_VU0_CALC_COLOR);
+        }
+#endif   
         
         fIz = pS->fIz; 
         
@@ -1464,18 +1974,27 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
         
         pP->fF = pS->fFog; 
         
+#ifndef TARGET_PC
         asm volatile 
         ("
             sqc2 vf4, VU1_PRIM_BUF.fR(%0) 
             nop                         
         " : : "r"(pP) : 
         );
+#else
+        { /* asm2c */
+            ee_reg op0 = {{0}};
+            op0.sd[0] = (int32_t)(uintptr_t)(pP);
+            vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+        }
+#endif
 
         _Clip_ViewVolume2((NJS_POINT4*)&pS->fVx); 
         
         pP++; 
         pS++; 
 
+#ifndef TARGET_PC
         asm volatile 
         ("
         .set noreorder
@@ -1486,6 +2005,14 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
         .set reorder
         " : : "r"(pS) : 
         );
+#else
+        { /* asm2c */
+            ee_reg op0 = {{0}};
+            op0.sd[0] = (int32_t)(uintptr_t)(pS);
+            vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+            vu0_callms(VU0_ADDR_VU0_CALC_COLOR);
+        }
+#endif
         
         fIz = pS->fIz; 
         
@@ -1501,12 +2028,20 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
         
         pP->fF = pS->fFog; 
         
+#ifndef TARGET_PC
         asm volatile 
         ("
             sqc2 vf4, VU1_PRIM_BUF.fR(%0) 
             nop                         
         " : : "r"(pP) : 
         );
+#else
+        { /* asm2c */
+            ee_reg op0 = {{0}};
+            op0.sd[0] = (int32_t)(uintptr_t)(pP);
+            vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+        }
+#endif
     
         _Clip_ViewVolume2((NJS_POINT4*)&pS->fVx); 
         
@@ -1515,6 +2050,7 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
         
         for (usStripCnt = 2; usStripCnt < usStripMax; usStripCnt++, pS++, pP++) 
         {
+#ifndef TARGET_PC
             asm volatile 
             ("
             .set noreorder
@@ -1525,6 +2061,14 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
             .set reorder
             " : : "r"(pS) : 
             );
+#else
+            { /* asm2c */
+                ee_reg op0 = {{0}};
+                op0.sd[0] = (int32_t)(uintptr_t)(pS);
+                vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+                vu0_callms(VU0_ADDR_VU0_CALC_COLOR);
+            }
+#endif
             
             fIz = pS->fIz; 
             
@@ -1540,12 +2084,20 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
             
             pP->fF = pS->fFog; 
             
+#ifndef TARGET_PC
             asm volatile 
             ("
                 sqc2 vf4, VU1_PRIM_BUF.fR(%0) 
                 nop                         
             " : : "r"(pP) : 
             );
+#else
+            { /* asm2c */
+                ee_reg op0 = {{0}};
+                op0.sd[0] = (int32_t)(uintptr_t)(pP);
+                vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+            }
+#endif
             
             _Clip_ViewVolume2((NJS_POINT4*)&pS->fVx); 
             
@@ -1558,12 +2110,13 @@ void vu1DrawTriangleStripTransDouble(unsigned long ulType, VU1_STRIP_BUF* pS, un
         } 
     } 
     
-    Ps2AddPrim3DEx(ulType, Ps2_DRAW_TMP, usStripMax); 
+    PC_ADDPRIM3DEX(ulType, Ps2_DRAW_TMP, usStripMax); 
 } 
 
 // 100% matching!
 void vu1GetVertexColor(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         lqc2      vf4, VU1_STRIP_BUF.fIr(%0)
@@ -1584,11 +2137,36 @@ void vu1GetVertexColor(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
         sqc2      vf4, VU1_PRIM_BUF.fR(%1)
     " : : "r"(pStrip), "r"(pPrim), "f"(128.0f), "f"(256.0f) : "$t0", "$t1", "$t2", "$t3"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pStrip);
+        op1.sd[0] = (int32_t)(uintptr_t)(pPrim);
+        op2.f[0] = (float)(128.0f);
+        op3.f[0] = (float)(256.0f);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+        R8.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+        R9.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+        R10.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+        R11.sd[0] = (int32_t)(ee_f2u(op3.f[0]));
+        ee_pextlw(&R8, &R9, &R8);
+        ee_pextlw(&R10, &R11, &R10);
+        ee_pcpyld(&R8, &R10, &R8);
+        vu_load_vf(5, &R8);
+        vu_upper(U_MUL, 15, 4, 4, 5, BC_NONE);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+    }
+#endif
 }
 
 // 100% matching!
 void vu1GetVertexColorCM(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim) // first parameter is not present on the debugging symbols
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         lqc2    vf4, VU1_COLOR.fR(%1)
@@ -1602,11 +2180,26 @@ void vu1GetVertexColorCM(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim) // first pa
         sqc2    vf4, VU1_PRIM_BUF.fR(%0)
     " : : "r"(pPrim), "r"(&vu1Diffuse), "f"(fVu1AlphaRatio) : "$v1", "$t0"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pPrim);
+        op1.sd[0] = (int32_t)(uintptr_t)(&vu1Diffuse);
+        vu_load_vf(4, EE_PTR((op1.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        R8.sd[0] = EE_LW((uint32_t)(uintptr_t)&fVu1AlphaRatio);
+        vu_load_vf(5, &R8);
+        vu_upper(U_MUL, 1, 4, 0, 5, BC_X);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+    }
+#endif
 }
 
 // 100% matching!
 void vu1GetVertexColorIgnore(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim) // first parameter is not present on the debugging symbols
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         addi        t0, zero, 128
@@ -1625,11 +2218,28 @@ void vu1GetVertexColorIgnore(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim) // firs
         sqc2        vf4, VU1_PRIM_BUF.fR(%0)
     " : : "r"(pPrim), "f"(fVu1AlphaRatio) : "$t1"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pPrim);
+        R8.sd[0] = (int32_t)(ee_zero.w[0] + (uint32_t)(128));
+        vu_load_vf(5, &R8);
+        vu_upper(U_ITOF0, 15, 5, 5, 0, BC_NONE);
+        R9.sd[0] = EE_LW((uint32_t)(uintptr_t)&fVu1AlphaRatio);
+        vu_load_vf(6, &R9);
+        vu_upper(U_ADD, 14, 4, 0, 5, BC_X);
+        vu_upper(U_MUL, 1, 4, 0, 6, BC_X);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+    }
+#endif
 }
 
 // 100% matching!
 void vu1GetVertexColorDif(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         lqc2       vf4, VU1_STRIP_BUF.fIr(%0)
@@ -1648,11 +2258,32 @@ void vu1GetVertexColorDif(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
         sqc2       vf4, VU1_PRIM_BUF.fR(%1)
     " : : "r"(pStrip), "r"(pPrim), "r"(&vu1Diffuse), "f"(fVu1AlphaRatio) : "$v1", "$t0"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pStrip);
+        op1.sd[0] = (int32_t)(uintptr_t)(pPrim);
+        op2.sd[0] = (int32_t)(uintptr_t)(&vu1Diffuse);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+        vu_load_vf(5, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        R8.sd[0] = EE_LW((uint32_t)(uintptr_t)&fVu1AlphaRatio);
+        vu_upper(U_MINI, 14, 4, 4, 0, BC_W);
+        vu_upper(U_MAX, 14, 4, 4, 0, BC_X);
+        vu_load_vf(6, &R8);
+        vu_upper(U_MUL, 14, 4, 4, 5, BC_NONE);
+        vu_upper(U_MUL, 1, 4, 0, 6, BC_X);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+    }
+#endif
 }
 
 // 100% matching!
 void vu1GetVertexColorDifAmb(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim) 
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         lqc2       vf4, VU1_STRIP_BUF.fIr(%0)
@@ -1672,11 +2303,30 @@ void vu1GetVertexColorDifAmb(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
         sqc2       vf4, VU1_PRIM_BUF.fR(%1)
     " : : "r"(pStrip), "r"(pPrim), "f"(fVu1AlphaRatio) : "$t0"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pStrip);
+        op1.sd[0] = (int32_t)(uintptr_t)(pPrim);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+        R8.sd[0] = EE_LW((uint32_t)(uintptr_t)&fVu1AlphaRatio);
+        vu_load_vf(8, &R8);
+        vu_upper(U_ADD, 14, 7, 4, 22, BC_NONE);
+        vu_upper(U_MAX, 14, 7, 7, 0, BC_X);
+        vu_upper(U_MINI, 14, 7, 7, 0, BC_W);
+        vu_upper(U_MUL, 14, 4, 7, 20, BC_NONE);
+        vu_upper(U_MUL, 1, 4, 0, 8, BC_X);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+    }
+#endif
 }
 
 // 96.47% matching
 void vu1GetVertexColorDifSpe1(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         lqc2       vf4, VU1_STRIP_BUF.fIr(%0)
@@ -1706,11 +2356,36 @@ void vu1GetVertexColorDifSpe1(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
         sqc2       vf4, VU1_PRIM_BUF.fR(%1)
     " : : "r"(pStrip), "r"(pPrim), "f"(fVu1AlphaRatio) : "$t0", "memory"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pStrip);
+        op1.sd[0] = (int32_t)(uintptr_t)(pPrim);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+        R8.sd[0] = EE_LW((uint32_t)(uintptr_t)&fVu1AlphaRatio);
+        vu_move(15, 5, 4);
+        vu_move(15, 6, 4);
+        vu_load_vf(8, &R8);
+        vu_upper(U_SUB, 14, 7, 4, 0, BC_W);
+        vu_upper(U_MAX, 14, 4, 4, 0, BC_X);
+        vu_upper(U_MINI, 14, 4, 4, 0, BC_W);
+        vu_upper(U_MAX, 14, 7, 7, 0, BC_X);
+        vu_upper(U_MINI, 14, 7, 7, 0, BC_W);
+        vu_upper(U_MUL, 14, 4, 4, 5, BC_NONE);
+        vu_upper(U_MUL, 14, 7, 7, 6, BC_NONE);
+        vu_upper(U_ADD, 14, 4, 4, 7, BC_NONE);
+        vu_upper(U_MUL, 1, 4, 0, 8, BC_X);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+    }
+#endif
 }
 
 // 100% matching!
 void vu1GetVertexColorDifSpe2(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         lqc2       vf4, VU1_STRIP_BUF.fIr(%0)
@@ -1741,11 +2416,44 @@ void vu1GetVertexColorDifSpe2(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
         sqc2       vf4, VU1_PRIM_BUF.fR(%1)
     " : : "r"(pStrip), "r"(pPrim), "r"(&vu1Ambient), "r"(&vu1Diffuse), "r"(&vu1Specula), "f"(fVu1AlphaRatio) : "$v1", "$a2", "$a3", "$t0"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        ee_reg op4 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pStrip);
+        op1.sd[0] = (int32_t)(uintptr_t)(pPrim);
+        op2.sd[0] = (int32_t)(uintptr_t)(&vu1Ambient);
+        op3.sd[0] = (int32_t)(uintptr_t)(&vu1Diffuse);
+        op4.sd[0] = (int32_t)(uintptr_t)(&vu1Specula);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+        vu_load_vf(5, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        vu_load_vf(6, EE_PTR((op3.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        vu_load_vf(7, EE_PTR((op4.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        R8.sd[0] = EE_LW((uint32_t)(uintptr_t)&fVu1AlphaRatio);
+        vu_load_vf(8, &R8);
+        vu_upper(U_ADD, 14, 5, 4, 5, BC_NONE);
+        vu_upper(U_SUB, 14, 5, 5, 0, BC_W);
+        vu_upper(U_MAX, 14, 4, 4, 0, BC_X);
+        vu_upper(U_MINI, 14, 4, 4, 0, BC_W);
+        vu_upper(U_MAX, 14, 5, 5, 0, BC_X);
+        vu_upper(U_MINI, 14, 5, 5, 0, BC_W);
+        vu_upper(U_MUL, 14, 4, 4, 6, BC_NONE);
+        vu_upper(U_MUL, 14, 5, 5, 7, BC_NONE);
+        vu_upper(U_ADD, 14, 4, 4, 5, BC_NONE);
+        vu_upper(U_MUL, 1, 4, 0, 8, BC_X);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+    }
+#endif
 }
 
 // 100% matching!
 void vu1GetVertexColorDifSpe3(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         lqc2       vf4, VU1_STRIP_BUF.fIr(%0)
@@ -1787,11 +2495,46 @@ void vu1GetVertexColorDifSpe3(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
         sqc2       vf4, VU1_PRIM_BUF.fR(%1)
     " : : "r"(pStrip), "r"(pPrim), "r"(&vu1Diffuse), "r"(&vu1Specula), "f"(fVu1AlphaRatio) : "$v1", "$a2", "$t0"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pStrip);
+        op1.sd[0] = (int32_t)(uintptr_t)(pPrim);
+        op2.sd[0] = (int32_t)(uintptr_t)(&vu1Diffuse);
+        op3.sd[0] = (int32_t)(uintptr_t)(&vu1Specula);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+        vu_load_vf(5, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        vu_load_vf(6, EE_PTR((op3.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        R8.sd[0] = EE_LW((uint32_t)(uintptr_t)&fVu1AlphaRatio);
+        vu_load_vf(8, &R8);
+        R9.sd[0] = (int32_t)(ee_zero.w[0] + (uint32_t)(17));
+        vu_upper(U_ADD, 14, 7, 0, 0, BC_W);
+    l_002D5770:;
+        vu_upper(U_MUL, 14, 7, 7, 4, BC_NONE);
+        R9.sd[0] = (int32_t)(R9.w[0] + (uint32_t)(-1));
+        if (R9.sd[0] != 0) goto l_002D5770;
+        vu_upper(U_MAX, 14, 4, 4, 0, BC_X);
+        vu_upper(U_MINI, 14, 4, 4, 0, BC_W);
+        vu_upper(U_MAX, 14, 7, 7, 0, BC_X);
+        vu_upper(U_MINI, 14, 7, 7, 0, BC_W);
+        vu_upper(U_MUL, 14, 4, 4, 5, BC_NONE);
+        vu_upper(U_MUL, 14, 7, 7, 6, BC_NONE);
+        vu_upper(U_ADD, 14, 4, 4, 7, BC_NONE);
+        vu_upper(U_MUL, 1, 4, 0, 8, BC_X);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+    }
+#endif
 }
 
 // 100% matching!
 void vu1GetVertexColorDifSpe1Amb(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         lqc2       vf4, VU1_STRIP_BUF.fIr(%0)
@@ -1823,11 +2566,44 @@ void vu1GetVertexColorDifSpe1Amb(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
         sqc2       vf4, VU1_PRIM_BUF.fR(%1)
     " : : "r"(pStrip), "r"(pPrim), "r"(&vu1Ambient), "r"(&vu1Diffuse), "r"(&vu1Specula), "f"(fVu1AlphaRatio) : "$v1", "$a2", "$a3", "$t0"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        ee_reg op4 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pStrip);
+        op1.sd[0] = (int32_t)(uintptr_t)(pPrim);
+        op2.sd[0] = (int32_t)(uintptr_t)(&vu1Ambient);
+        op3.sd[0] = (int32_t)(uintptr_t)(&vu1Diffuse);
+        op4.sd[0] = (int32_t)(uintptr_t)(&vu1Specula);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+        vu_load_vf(5, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        vu_load_vf(6, EE_PTR((op3.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        vu_load_vf(7, EE_PTR((op4.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        R8.sd[0] = EE_LW((uint32_t)(uintptr_t)&fVu1AlphaRatio);
+        vu_load_vf(8, &R8);
+        vu_upper(U_SUB, 14, 9, 4, 0, BC_W);
+        vu_upper(U_MAX, 14, 9, 9, 0, BC_X);
+        vu_upper(U_MINI, 14, 9, 9, 0, BC_W);
+        vu_upper(U_ADD, 14, 4, 4, 5, BC_NONE);
+        vu_upper(U_MAX, 14, 4, 4, 0, BC_X);
+        vu_upper(U_MINI, 14, 4, 4, 0, BC_W);
+        vu_upper(U_MUL, 14, 9, 9, 7, BC_NONE);
+        vu_upper(U_MUL, 14, 4, 4, 6, BC_NONE);
+        vu_upper(U_ADD, 14, 4, 4, 9, BC_NONE);
+        vu_upper(U_MUL, 1, 4, 0, 8, BC_X);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+    }
+#endif
 }
 
 // 100% matching!
 void vu1GetVertexColorDifSpe2Amb(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         lqc2       vf4, VU1_STRIP_BUF.fIr(%0)
@@ -1858,11 +2634,44 @@ void vu1GetVertexColorDifSpe2Amb(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
         sqc2       vf4, VU1_PRIM_BUF.fR(%1)
     " : : "r"(pStrip), "r"(pPrim), "r"(&vu1Ambient), "r"(&vu1Diffuse), "r"(&vu1Specula), "f"(fVu1AlphaRatio) : "$v1", "$a2", "$a3", "$t0"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        ee_reg op4 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pStrip);
+        op1.sd[0] = (int32_t)(uintptr_t)(pPrim);
+        op2.sd[0] = (int32_t)(uintptr_t)(&vu1Ambient);
+        op3.sd[0] = (int32_t)(uintptr_t)(&vu1Diffuse);
+        op4.sd[0] = (int32_t)(uintptr_t)(&vu1Specula);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+        vu_load_vf(5, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        vu_load_vf(6, EE_PTR((op3.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        vu_load_vf(7, EE_PTR((op4.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        R8.sd[0] = EE_LW((uint32_t)(uintptr_t)&fVu1AlphaRatio);
+        vu_load_vf(8, &R8);
+        vu_upper(U_ADD, 14, 4, 4, 5, BC_NONE);
+        vu_upper(U_SUB, 14, 9, 4, 0, BC_W);
+        vu_upper(U_MAX, 14, 9, 9, 0, BC_X);
+        vu_upper(U_MINI, 14, 9, 9, 0, BC_W);
+        vu_upper(U_MAX, 14, 4, 4, 0, BC_X);
+        vu_upper(U_MINI, 14, 4, 4, 0, BC_W);
+        vu_upper(U_MUL, 14, 9, 9, 7, BC_NONE);
+        vu_upper(U_MUL, 14, 4, 4, 6, BC_NONE);
+        vu_upper(U_ADD, 14, 4, 4, 9, BC_NONE);
+        vu_upper(U_MUL, 1, 4, 0, 8, BC_X);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+    }
+#endif
 }
 
 // 100% matching!
 void vu1GetVertexColorDifSpe3Amb(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
 {
+#ifndef TARGET_PC
     asm volatile 
     ("
         lqc2       vf4, VU1_STRIP_BUF.fIr(%0)
@@ -1907,6 +2716,44 @@ void vu1GetVertexColorDifSpe3Amb(VU1_STRIP_BUF* pStrip, VU1_PRIM_BUF* pPrim)
         sqc2       vf4, VU1_PRIM_BUF.fR(%1)
     " : : "r"(pStrip), "r"(pPrim), "r"(&vu1Ambient), "r"(&vu1Diffuse), "r"(&vu1Specula), "f"(fVu1AlphaRatio) : "$v1", "$a2", "$a3", "$t0"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        ee_reg op4 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pStrip);
+        op1.sd[0] = (int32_t)(uintptr_t)(pPrim);
+        op2.sd[0] = (int32_t)(uintptr_t)(&vu1Ambient);
+        op3.sd[0] = (int32_t)(uintptr_t)(&vu1Diffuse);
+        op4.sd[0] = (int32_t)(uintptr_t)(&vu1Specula);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fIr)))));
+        vu_load_vf(5, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        vu_load_vf(6, EE_PTR((op3.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        vu_load_vf(7, EE_PTR((op4.w[0] + (uint32_t)(offsetof(VU1_COLOR, fR)))));
+        R8.sd[0] = EE_LW((uint32_t)(uintptr_t)&fVu1AlphaRatio);
+        vu_load_vf(8, &R8);
+        vu_upper(U_ADD, 14, 4, 4, 5, BC_NONE);
+        R9.sd[0] = (int32_t)(ee_zero.w[0] + (uint32_t)(17));
+        vu_upper(U_ADD, 14, 9, 0, 0, BC_W);
+    l_002D58E0:;
+        vu_upper(U_MUL, 14, 9, 9, 4, BC_NONE);
+        R9.sd[0] = (int32_t)(R9.w[0] + (uint32_t)(-1));
+        if (R9.sd[0] != 0) goto l_002D58E0;
+        vu_upper(U_MAX, 14, 4, 4, 0, BC_X);
+        vu_upper(U_MINI, 14, 4, 4, 0, BC_W);
+        vu_upper(U_MAX, 14, 9, 9, 0, BC_X);
+        vu_upper(U_MINI, 14, 9, 9, 0, BC_W);
+        vu_upper(U_MUL, 14, 4, 4, 6, BC_NONE);
+        vu_upper(U_MUL, 14, 9, 9, 7, BC_NONE);
+        vu_upper(U_ADD, 14, 4, 4, 9, BC_NONE);
+        vu_upper(U_MUL, 1, 4, 0, 8, BC_X);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 4);
+    }
+#endif
 }
 
 // 100% matching! 
@@ -1951,6 +2798,7 @@ void vu1DrawTriangleStripTransDoubleI(unsigned long ulType, VU1_STRIP_BUF* pS, u
     {
         pFunc(pS, pP);
         
+#ifndef TARGET_PC
         asm volatile
         ("
             lqc2         vf4, VU1_STRIP_BUF.fSx(%2)   
@@ -2015,10 +2863,61 @@ void vu1DrawTriangleStripTransDoubleI(unsigned long ulType, VU1_STRIP_BUF* pS, u
             l_002D5AE0:
             sw           t2, SCISSOR.rotflag(%0)    
         " : : "r"(&scissorflip), "r"(&clipflag), "r"(pS), "r"(pP) : "$t0", "$t1", "$t2", "$t3", "$t4", "$t5", "memory");
+#else
+        { /* asm2c */
+            ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}}, R12 = {{0}}, R13 = {{0}};
+            const ee_reg ee_zero = {{0}};
+            ee_reg op0 = {{0}};
+            ee_reg op1 = {{0}};
+            ee_reg op2 = {{0}};
+            ee_reg op3 = {{0}};
+            op0.sd[0] = (int32_t)(uintptr_t)(&scissorflip);
+            op1.sd[0] = (int32_t)(uintptr_t)(&clipflag);
+            op2.sd[0] = (int32_t)(uintptr_t)(pS);
+            op3.sd[0] = (int32_t)(uintptr_t)(pP);
+            vu_load_vf(4, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fSx)))));
+            vu_load_vf(5, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fU)))));
+            vu_load_vf(6, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fVx)))));
+            vu_upper(U_MUL, 12, 5, 5, 4, BC_Z);
+            vu_upper(U_ADD, 2, 5, 0, 4, BC_NONE);
+            vu_upper(U_SUB, 1, 5, 5, 5, BC_NONE);
+            vu_store_vf(EE_PTR((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fS)))), 5);
+            vu_load_vf(8, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fVx)))));
+            vu_load_vf(10, EE_PTR((op2.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fU)))));
+            vu_load_vf(9, EE_PTR((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))));
+            vu_upper(U_MULA, 15, 0, 24, 8, BC_X);
+            vu_upper(U_MADDA, 15, 0, 25, 8, BC_Y);
+            vu_upper(U_MADDA, 15, 0, 26, 8, BC_Z);
+            vu_upper(U_MADD, 15, 11, 27, 0, BC_W);
+            vu_clipw(11, 11);
+            vu_move(15, 7, 6);
+            vu_upper(U_ADD, 12, 7, 4, 16, BC_NONE);
+            vu_store_vf(EE_PTR((op3.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fX)))), 7);
+            R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(0)));
+            R8.sd[0] = (int32_t)(vu_cfc2(18));
+            R8.d[0] = R8.d[0] & (uint64_t)(uint16_t)(63);
+            R9.d[0] = R8.d[0] | R9.d[0];
+            EE_SW((op1.w[0] + (uint32_t)(0)), R9.d[0]);
+            R10.sd[0] = EE_LW((op0.w[0] + (uint32_t)(offsetof(SCISSOR, rotflag))));
+            R11.sd[0] = (int32_t)(R10.w[0] * (uint32_t)(64));
+            R10.sd[0] = (int32_t)(R10.w[0] + (uint32_t)(1));
+            R12.sd[0] = (int32_t)(R11.w[0] + op0.w[0]);
+            R10.d[0] = R10.d[0] & (uint64_t)(uint16_t)(3);
+            vu_store_vf(EE_PTR((R12.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].vertex)))), 8);
+            vu_store_vf(EE_PTR((R12.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].color)))), 9);
+            vu_store_vf(EE_PTR((R12.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].texUV)))), 10);
+            vu_store_vf(EE_PTR((R12.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].clipV)))), 11);
+            R13.sd[0] = (int32_t)(R10.w[0] + (uint32_t)(-3));
+            if (R13.sd[0] < 0) goto l_002D5AE0;
+            R10.sd[0] = (int32_t)(0u - ee_zero.w[0]);
+        l_002D5AE0:;
+            EE_SW((op0.w[0] + (uint32_t)(offsetof(SCISSOR, rotflag))), R10.d[0]);
+        }
+#endif
     
         flg |= _Check_DisplayAreaPoint((NJS_VECTOR*)&pP->fX); 
         
-        if ((((flg & 0x7)) && ((clipflag & 0x3FFFF))) && (usStripCnt >= 2)) 
+        if (PC_SCISSOR && (((flg & 0x7)) && ((clipflag & 0x3FFFF))) && (usStripCnt >= 2)) 
         { 
             pP->ulKick = 32768;
             
@@ -2036,7 +2935,7 @@ void vu1DrawTriangleStripTransDoubleI(unsigned long ulType, VU1_STRIP_BUF* pS, u
         flg <<= 1; 
     } 
     
-    Ps2AddPrim3DExI(ulType, Ps2_DRAW_TMP, usStripMax); 
+    PC_ADDPRIM3DEXI(ulType, Ps2_DRAW_TMP, usStripMax); 
 } 
 
 // 100% matching!
@@ -2047,6 +2946,7 @@ void DrawScissorPolygonTrans1P(SCISSOR* scissor, unsigned long ulType)
 
     in = scissor->in;
     
+#ifndef TARGET_PC
     asm volatile
     ("
         addi     t6, %0, SCISSOR.in
@@ -2100,6 +3000,40 @@ void DrawScissorPolygonTrans1P(SCISSOR* scissor, unsigned long ulType)
         vnop
     " : : "r"(scissor), "r"(vu1ScessorBuf) : "t7"
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R14 = {{0}}, R15 = {{0}};
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(scissor);
+        op1.sd[0] = (int32_t)(uintptr_t)(vu1ScessorBuf);
+        R14.sd[0] = (int32_t)(op0.w[0] + (uint32_t)(offsetof(SCISSOR, in)));
+        R14.sd[0] = EE_LW((R14.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0]))));
+        R15.sd[0] = (int32_t)(ee_zero.w[0] + op1.w[0]);
+        R8.sd[0] = EE_LW((R14.w[0] + (uint32_t)(offsetof(SCISSOR_NODE, nodeNum))));
+    l_002D4720:;
+        vu_load_vf(4, EE_PTR((R14.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].vertex)))));
+        vu_div(0, 3, 4, 2);
+        vu_load_vf(7, EE_PTR((R14.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].color)))));
+        vu_store_vf(EE_PTR((R15.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fR)))), 7);
+        vu_upper(U_ADD, 8, 5, 0, 23, BC_Z);
+        vu_load_vf(6, EE_PTR((R14.w[0] + (uint32_t)(offsetof(SCISSOR, triangle.node[0].texUV)))));
+        R8.sd[0] = (int32_t)(R8.w[0] + (uint32_t)(-1));
+        vu_upper(U_MUL, 8, 5, 5, 0, BC_Q);
+        vu_upper(U_MUL, 12, 6, 6, 0, BC_Q);
+        vu_upper(U_ADD, 2, 6, 0, 0, BC_Q);
+        vu_upper(U_SUB, 1, 6, 6, 6, BC_NONE);
+        vu_upper(U_MUL, 12, 4, 4, 5, BC_X);
+        vu_store_vf(EE_PTR((R15.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fS)))), 6);
+        vu_upper(U_MUL, 12, 4, 4, 17, BC_NONE);
+        vu_upper(U_ADD, 12, 4, 4, 16, BC_NONE);
+        R14.sd[0] = (int32_t)(R14.w[0] + (uint32_t)((sizeof(NODE))));
+        vu_store_vf(EE_PTR((R15.w[0] + (uint32_t)(offsetof(VU1_PRIM_BUF, fX)))), 4);
+        R15.sd[0] = (int32_t)(R15.w[0] + (uint32_t)((sizeof(VU1_PRIM_BUF))));
+        if (R8.sd[0] != 0) goto l_002D4720;
+    }
+#endif
 
     ulType = (ulType & 0xFFFDFFFFFFFFFFFF) | 0x6800000000000;
     
@@ -2165,7 +3099,7 @@ void vu1DrawTriangleStripTransDouble1P(unsigned long ulType, VU1_STRIP_BUF* pS, 
         
         PushTriangleNodeArray(&scissorflip, &node);
 
-        if ((((flg & 0x7)) && ((clipflag & 0x3FFFF))) && (usStripCnt >= 2)) 
+        if (PC_SCISSOR && (((flg & 0x7)) && ((clipflag & 0x3FFFF))) && (usStripCnt >= 2)) 
         { 
             pP->ulKick = 32768;
             
@@ -2183,5 +3117,5 @@ void vu1DrawTriangleStripTransDouble1P(unsigned long ulType, VU1_STRIP_BUF* pS, 
         flg <<= 1; 
     } 
     
-    Ps2AddPrim3DEx1P(ulType, Ps2_DRAW_TMP, usStripMax); 
+    PC_ADDPRIM3DEX1P(ulType, Ps2_DRAW_TMP, usStripMax); 
 } 

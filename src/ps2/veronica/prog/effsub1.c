@@ -27,6 +27,10 @@ void bhEffDmy(O_WRK* op)
 // 100% matching!
 void bhEffFil(O_WRK* op) 
 {
+#ifdef TARGET_PC
+    /* third person, "smooth" light and fog: the filter fades instead of switching with the cut */
+    if (tps_on && op->mode0 != 0 && tps_filter(op)) return;
+#endif
     switch (op->mode0) 
     {                    
     case 0:                               
@@ -134,6 +138,16 @@ void bhEffFil(O_WRK* op)
             break;
         }
         
+#ifdef TARGET_PC
+        /* PC option for the camera filter (vignette): 0 original 4:3, 1 stretched to the
+           widened view, 2 off. Display only. */
+        if (pc_screen_filter_mode() == 2) { op->flg |= 0x1000000; break; }
+        {
+            float half = 320.0f * (pc_screen_filter_mode() == 1 ? pc_hor_scale() : 1.0f);
+            op->tv[0].x = op->tv[2].x = 320.0f - half;
+            op->tv[1].x = op->tv[3].x = 320.0f + half;
+        }
+#endif
         op->flg &= ~0x1000000;
         
         sys->ef_trs2d[sys->ef_trs2dn++] = op;
@@ -4755,6 +4769,9 @@ void bhEff019(O_WRK* op)
 // 100% matching!
 void bhDraw021()
 {
+#ifdef TARGET_PC
+    if (!pc_overlay_begin(PC_OVL_CINEMA)) return;
+#endif
 	NJS_POINT2COL p2c;     
     NJS_POINT2 p[4];    
     NJS_COLOR col[4];  
@@ -4821,6 +4838,9 @@ void bhDraw021()
     p[3].y = 440.0f;
     
     njDrawPolygon2D(&p2c, 4, -0.9f, 96);
+#ifdef TARGET_PC
+    pc_overlay_end();
+#endif
 }
 
 // 100% matching!

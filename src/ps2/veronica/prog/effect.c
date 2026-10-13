@@ -432,6 +432,14 @@ int bhSetEffect(int effno, POINT* pnt, unsigned char* lkp, int lkono)
     }
 }
 
+#ifdef TARGET_PC
+/* per effect slot, the enemy type whose code made it (-1: none), for its sounds (a Black Widow's acid
+   splashes request as enemy 127 from the effect's own step): eneset.c pc_enemy_sound_type */
+short pc_eff_owner[512][2];   /* type, effect id + 1 */
+int pc_enemy_sound_type(int slot);
+int pc_fx_tex_missing(int id, int tex_id);   /* spawn_glue.c */
+#endif
+
 // 100% matching!
 int bhSetEffectTb(EF_WORK* efp, NJS_POINT3* off, unsigned char* lkp, int lkono) 
 {
@@ -530,6 +538,10 @@ int bhSetEffectTb(EF_WORK* efp, NJS_POINT3* off, unsigned char* lkp, int lkono)
             
             opp->tv[3].u = 1.0f;
             opp->tv[3].v = 1.0f;
+#ifdef TARGET_PC
+            pc_eff_owner[i][0] = (short)pc_enemy_sound_type(-1);
+            pc_eff_owner[i][1] = opp->id + 1;   /* (an effect another allocator put in the slot later is no one's) */
+#endif
             
             return i;
         }
@@ -814,6 +826,10 @@ void bhControlEffect()
                         }
                     }
                     
+#ifdef TARGET_PC
+                    {
+                    int pc_fx = coop_on && coop_fx_step(i, 0);   /* co-op: a partner's projectile only shows; ours sends its blast */
+#endif
                     if (op->id < 150) 
                     {
                         bhJumpEffect[op->id](op);
@@ -834,6 +850,17 @@ void bhControlEffect()
                     {
                         bhJumpEffect4[op->id - 350](op);
                     }
+#ifdef TARGET_PC
+                    if (pc_fx)
+                    {
+                        coop_fx_step(i, 1);
+                    }
+                    }
+                    if (pc_enemy_added && (op->flg & 0x1) && !(op->stflg & 0x20) && pc_fx_tex_missing(op->id, op->tex_id))   /* (only with added enemies: retail rooms as retail) */
+                    {
+                        op->flg |= 0x1000000;   /* a room effect texture this room has not uploaded: nothing rather than another texture */
+                    }
+#endif
                     
                     if ((op->flg & 0x10000)) 
                     {
@@ -1772,7 +1799,7 @@ void bhDrawTrsEffect2D(unsigned int* owp, int ct)
 } 
 
 // 100% matching!
-static void bhDrawThunder()
+void bhDrawThunder()
 {
     NJS_POLYGON_VTX* p; 
     int i;              

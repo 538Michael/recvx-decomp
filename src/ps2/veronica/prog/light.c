@@ -724,8 +724,15 @@ void bhControlLight()
             case 1:                             
                 pwp = plp;
                 break;
-            case 2:                             
+            case 2:
+#ifdef TARGET_PC
+                /* lkno is the enemy's slot (en22.c, pwksub.c: idx_ct), read as a record: slot k
+                   is record k for the room's records; beyond them (an enemy the F2 spawner or the
+                   enemy options added) the slot itself */
+                pwp = lp->lkno < rom->ene_n ? &ene[rom->enep[lp->lkno].wrk_no] : &ene[lp->lkno & 127];
+#else
                 pwp = &ene[rom->enep[lp->lkno].wrk_no];
+#endif
                 break;
             case 3:                             
                 pwp = (BH_PWORK*)&sys->obwp[lp->lkno];

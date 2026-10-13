@@ -8,6 +8,7 @@ void Init_Expand()
     ExpandCtrlBuf.flag.abort = 0; 
 }
 
+#ifndef TARGET_PC
 // 99.63% matching
 int Expand(register char* s, register unsigned char* d) 
 {
@@ -205,8 +206,9 @@ int Expand(register char* s, register unsigned char* d)
     return T;
 } 
 
-/* Following is a C version of Expand() provided by Clownacy */
-/*typedef struct Expand_State
+#else
+/* C version of Expand() provided by Clownacy (verified equivalent to the asm above) */
+typedef struct Expand_State
 {
     const unsigned char *source;
     unsigned char descriptor_field;
@@ -219,9 +221,9 @@ static void Expand_RefreshDescriptorField(Expand_State* const state)
     state->descriptor_bits_remaining = 8;
 }
  
-static bool Expand_GetDescriptorBit(Expand_State* const state)
+static int Expand_GetDescriptorBit(Expand_State* const state)
 {
-    bool bit;
+    int bit;
  
     if (--state->descriptor_bits_remaining == 0)
         Expand_RefreshDescriptorField(state);
@@ -293,4 +295,5 @@ int Expand(register char* s, register unsigned char* d)
     }
  
     return destination - d;
-}*/
+}
+#endif

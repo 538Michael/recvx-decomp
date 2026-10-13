@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/njplus.h"
 #include "../../../ps2/veronica/prog/ps2_dummy.h"
 #include "../../../ps2/veronica/prog/ps2_NaColi.h"
@@ -751,6 +754,7 @@ void npTransform(NJS_CNK_OBJECT* srcobj, NJS_CNK_OBJECT* dstobj, register float 
     { 
         if ((sp->x != dp->x) || (sp->y != dp->y) || (sp->z != dp->z)) 
         { 
+#ifndef TARGET_PC
             asm volatile 
             {
             .set noreorder
@@ -778,6 +782,33 @@ void npTransform(NJS_CNK_OBJECT* srcobj, NJS_CNK_OBJECT* dstobj, register float 
 
             .set reorder
             }
+#else
+            { /* asm2c */
+                ee_reg R8 = {{0}};
+                ee_reg cv_dp = {{0}};
+                ee_reg cv_fp = {{0}};
+                ee_reg cv_no = {{0}};
+                ee_reg cv_sp = {{0}};
+                cv_dp.sd[0] = (int32_t)(uintptr_t)(dp);
+                cv_fp.sd[0] = (int32_t)(uintptr_t)(fp);
+                cv_no.f[0] = no;
+                cv_sp.sd[0] = (int32_t)(uintptr_t)(sp);
+                R8.sd[0] = (int32_t)(ee_f2u(cv_no.f[0]));
+                vu_load_vf(4, EE_PTR((cv_sp.w[0] + (uint32_t)(0))));
+                vu_load_vf(5, EE_PTR((cv_dp.w[0] + (uint32_t)(0))));
+                vu_load_vf(6, EE_PTR((cv_sp.w[0] + (uint32_t)(16))));
+                vu_load_vf(7, EE_PTR((cv_dp.w[0] + (uint32_t)(16))));
+                vu_load_vf(12, &R8);
+                vu_upper(U_SUB, 14, 5, 5, 4, BC_NONE);
+                vu_upper(U_SUB, 14, 7, 7, 6, BC_NONE);
+                vu_upper(U_MUL, 14, 5, 5, 12, BC_X);
+                vu_upper(U_MUL, 14, 7, 7, 12, BC_X);
+                vu_upper(U_ADD, 14, 5, 5, 4, BC_NONE);
+                vu_upper(U_ADD, 14, 7, 7, 6, BC_NONE);
+                vu_store_vf(EE_PTR((cv_fp.w[0] + (uint32_t)(0))), 5);
+                vu_store_vf(EE_PTR((cv_fp.w[0] + (uint32_t)(16))), 7);
+            }
+#endif
                 
             fp += 2; 
             sp += 2; 
@@ -785,6 +816,7 @@ void npTransform(NJS_CNK_OBJECT* srcobj, NJS_CNK_OBJECT* dstobj, register float 
         } 
         else 
         { 
+#ifndef TARGET_PC
             asm volatile
             {
                 .set noreorder
@@ -797,6 +829,18 @@ void npTransform(NJS_CNK_OBJECT* srcobj, NJS_CNK_OBJECT* dstobj, register float 
 
                 .set reorder
             }
+#else
+            { /* asm2c */
+                ee_reg cv_fp = {{0}};
+                ee_reg cv_sp = {{0}};
+                cv_fp.sd[0] = (int32_t)(uintptr_t)(fp);
+                cv_sp.sd[0] = (int32_t)(uintptr_t)(sp);
+                vu_load_vf(4, EE_PTR((cv_sp.w[0] + (uint32_t)(0))));
+                vu_load_vf(6, EE_PTR((cv_sp.w[0] + (uint32_t)(16))));
+                vu_store_vf(EE_PTR((cv_fp.w[0] + (uint32_t)(0))), 4);
+                vu_store_vf(EE_PTR((cv_fp.w[0] + (uint32_t)(16))), 6);
+            }
+#endif
             
             fp += 2; 
             sp += 2;
@@ -1588,6 +1632,7 @@ void npSetOffsetUV(NJS_CNK_MODEL* mdlp, short offu, short offv)
             } 
             else 
             {
+#ifndef TARGET_PC
                 asm volatile 
                 ("
                 .set noreorder
@@ -1626,6 +1671,47 @@ void npSetOffsetUV(NJS_CNK_MODEL* mdlp, short offu, short offv)
                 .set reorder
                 " : "=r"(plp) : "r"(offu), "r"(offv), "r"(usr_num), "r"(srp_num) : "t0", "t1", "t2"
                 );
+#else
+                { /* asm2c */
+                    ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}};
+                    int ee_cond;
+                    const ee_reg ee_zero = {{0}};
+                    ee_reg op0 = {{0}};
+                    ee_reg op1 = {{0}};
+                    ee_reg op2 = {{0}};
+                    ee_reg op3 = {{0}};
+                    ee_reg op4 = {{0}};
+                    op0.sd[0] = (int32_t)(uintptr_t)(plp);
+                    op1.sd[0] = (int32_t)(uintptr_t)(offu);
+                    op2.sd[0] = (int32_t)(uintptr_t)(offv);
+                    op3.sd[0] = (int32_t)(uintptr_t)(usr_num);
+                    op4.sd[0] = (int32_t)(uintptr_t)(srp_num);
+                l_0012DE68:;
+                    R10.sd[0] = EE_LH((op0.w[0] + (uint32_t)(0)));
+                    ee_cond = (R10.sd[0] >= 0);
+                    op0.sd[0] = (int32_t)(op0.w[0] + (uint32_t)(2));
+                    if (ee_cond) goto l_0012DE78;
+                    R10.sd[0] = (int32_t)(0u - R10.w[0]);
+                l_0012DE78:;
+                    R8.sd[0] = EE_LH((op0.w[0] + (uint32_t)(2)));
+                    R9.sd[0] = EE_LH((op0.w[0] + (uint32_t)(4)));
+                    R8.sd[0] = (int32_t)(R8.w[0] + op1.w[0]);
+                    R9.sd[0] = (int32_t)(R9.w[0] + op2.w[0]);
+                    EE_SH((op0.w[0] + (uint32_t)(2)), R8.d[0]);
+                    EE_SH((op0.w[0] + (uint32_t)(4)), R9.d[0]);
+                    R10.sd[0] = (int32_t)(R10.w[0] + (uint32_t)(-1));
+                    ee_cond = (R10.sd[0] > 0);
+                    op0.sd[0] = (int32_t)(op0.w[0] + (uint32_t)(6));
+                    if (ee_cond) goto l_0012DE78;
+                    op0.sd[0] = (int32_t)(op0.w[0] + op3.w[0]);
+                    op4.sd[0] = (int32_t)(op4.w[0] + (uint32_t)(-1));
+                    ee_cond = (op4.sd[0] > 0);
+                    op0.sd[0] = (int32_t)(op0.w[0] + op3.w[0]);
+                    if (ee_cond) goto l_0012DE68;
+                    op0.sd[0] = (int32_t)(op0.w[0] + ee_zero.w[0]);
+                    plp = (__typeof__(plp))(uintptr_t)op0.w[0];
+                }
+#endif
             }
         }
         else if (head == 8) 
@@ -1668,6 +1754,7 @@ void npSetOffsetUV2(NJS_CNK_MODEL* mdlp, short offu, short offv)
             usr_num = (*++plp >> 14) & 0x3; 
             srp_num = *plp++ & ~0xC000;
            
+#ifndef TARGET_PC
             asm volatile 
             ("
             .set noreorder
@@ -1704,6 +1791,45 @@ void npSetOffsetUV2(NJS_CNK_MODEL* mdlp, short offu, short offv)
             .set reorder
             " : "=r"(plp) : "r"(offu), "r"(offv), "r"(usr_num), "r"(srp_num) : "t0", "t1", "t2"
             );
+#else
+            { /* asm2c */
+                ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}};
+                int ee_cond;
+                ee_reg op0 = {{0}};
+                ee_reg op1 = {{0}};
+                ee_reg op2 = {{0}};
+                ee_reg op3 = {{0}};
+                ee_reg op4 = {{0}};
+                op0.sd[0] = (int32_t)(uintptr_t)(plp);
+                op1.sd[0] = (int32_t)(uintptr_t)(offu);
+                op2.sd[0] = (int32_t)(uintptr_t)(offv);
+                op3.sd[0] = (int32_t)(uintptr_t)(usr_num);
+                op4.sd[0] = (int32_t)(uintptr_t)(srp_num);
+            l_0012DFA8:;
+                R10.sd[0] = EE_LH((op0.w[0] + (uint32_t)(0)));
+                ee_cond = (R10.sd[0] >= 0);
+                op0.sd[0] = (int32_t)(op0.w[0] + (uint32_t)(2));
+                if (ee_cond) goto l_0012DFB8;
+                R10.sd[0] = (int32_t)(0u - R10.w[0]);
+            l_0012DFB8:;
+                R8.sd[0] = EE_LH((op0.w[0] + (uint32_t)(2)));
+                R9.sd[0] = EE_LH((op0.w[0] + (uint32_t)(4)));
+                R8.sd[0] = (int32_t)(R8.w[0] + op1.w[0]);
+                R9.sd[0] = (int32_t)(R9.w[0] + op2.w[0]);
+                EE_SH((op0.w[0] + (uint32_t)(2)), R8.d[0]);
+                EE_SH((op0.w[0] + (uint32_t)(4)), R9.d[0]);
+                R10.sd[0] = (int32_t)(R10.w[0] + (uint32_t)(-1));
+                ee_cond = (R10.sd[0] > 0);
+                op0.sd[0] = (int32_t)(op0.w[0] + (uint32_t)(6));
+                if (ee_cond) goto l_0012DFB8;
+                op0.sd[0] = (int32_t)(op0.w[0] + op3.w[0]);
+                op4.sd[0] = (int32_t)(op4.w[0] + (uint32_t)(-1));
+                ee_cond = (op4.sd[0] > 0);
+                op0.sd[0] = (int32_t)(op0.w[0] + op3.w[0]);
+                if (ee_cond) goto l_0012DFA8;
+                plp = (__typeof__(plp))(uintptr_t)op0.w[0];
+            }
+#endif
 
             break;
         }
@@ -1798,6 +1924,7 @@ void npInitCalcSkin(void* pwp, int obj_n, int* sknp)
                 np.sknp++; 
             }
             
+#ifndef TARGET_PC
             asm volatile 
             ("
             .set noreorder
@@ -1830,6 +1957,35 @@ void npInitCalcSkin(void* pwp, int obj_n, int* sknp)
             .set reorder
             " : : "r"(&owp->mtx), "r"(&((BH_PWORK*)pwp)->px), "r"(np.mxp[i][0]), "r"(owp) 
             );
+#else
+            { /* asm2c */
+                ee_reg R8 = {{0}}, R9 = {{0}};
+                ee_reg op0 = {{0}};
+                ee_reg op1 = {{0}};
+                ee_reg op2 = {{0}};
+                op0.sd[0] = (int32_t)(uintptr_t)(&owp->mtx);
+                op1.sd[0] = (int32_t)(uintptr_t)(&((BH_PWORK*)pwp)->px);
+                op2.sd[0] = (int32_t)(uintptr_t)(np.mxp[i][0]);
+                R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+                R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+                R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(8)));
+                ee_pcpyld(&R8, &R9, &R8);
+                vu_load_vf(8, &R8);
+                vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(48))));
+                vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+                vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(16))));
+                vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(32))));
+                vu_upper(U_SUB, 14, 7, 7, 8, BC_NONE);
+                vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(0))), 4);
+                vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(16))), 5);
+                vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(32))), 6);
+                vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(48))), 7);
+                vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(64))), 4);
+                vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(80))), 5);
+                vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(96))), 6);
+                vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(112))), 7);
+            }
+#endif
                 
             njRotXYZ(np.mxp[i][0], -op->ang[0], -op->ang[1], -op->ang[2]); 
         }
@@ -1903,6 +2059,7 @@ void npCalcSkin(void* pwp, int obj_n, int* sknp)
                         
                         if (lv != 1.0f) 
                         { 
+#ifndef TARGET_PC
                             asm volatile 
                             ("
                             .set noreorder
@@ -1947,10 +2104,49 @@ void npCalcSkin(void* pwp, int obj_n, int* sknp)
                             .set reorder
                             " : : "f"(lv), "r"(p0), "r"(p1), "r"(np.mxp[rg0][0]), "r"(np.mxp[rg0][1]) : "t0" 
                             );
+#else
+                            { /* asm2c */
+                                ee_reg R8 = {{0}};
+                                ee_reg op0 = {{0}};
+                                ee_reg op1 = {{0}};
+                                ee_reg op2 = {{0}};
+                                ee_reg op3 = {{0}};
+                                ee_reg op4 = {{0}};
+                                op0.f[0] = (float)(lv);
+                                op1.sd[0] = (int32_t)(uintptr_t)(p0);
+                                op2.sd[0] = (int32_t)(uintptr_t)(p1);
+                                op3.sd[0] = (int32_t)(uintptr_t)(np.mxp[rg0][0]);
+                                op4.sd[0] = (int32_t)(uintptr_t)(np.mxp[rg0][1]);
+                                R8.sd[0] = (int32_t)(ee_f2u(op0.f[0]));
+                                vu_load_vf(13, &R8);
+                                vu_load_vf(4, EE_PTR((op1.w[0] + (uint32_t)(0))));
+                                vu_load_vf(5, EE_PTR((op3.w[0] + (uint32_t)(0))));
+                                vu_load_vf(6, EE_PTR((op3.w[0] + (uint32_t)(16))));
+                                vu_load_vf(7, EE_PTR((op3.w[0] + (uint32_t)(32))));
+                                vu_load_vf(8, EE_PTR((op3.w[0] + (uint32_t)(48))));
+                                vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+                                vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+                                vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+                                vu_upper(U_MADD, 14, 9, 8, 0, BC_W);
+                                vu_load_vf(5, EE_PTR((op4.w[0] + (uint32_t)(0))));
+                                vu_load_vf(6, EE_PTR((op4.w[0] + (uint32_t)(16))));
+                                vu_load_vf(7, EE_PTR((op4.w[0] + (uint32_t)(32))));
+                                vu_load_vf(8, EE_PTR((op4.w[0] + (uint32_t)(48))));
+                                vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+                                vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+                                vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+                                vu_upper(U_MADD, 14, 10, 8, 0, BC_W);
+                                vu_upper(U_SUB, 14, 5, 10, 9, BC_NONE);
+                                vu_upper(U_MUL, 14, 6, 5, 13, BC_X);
+                                vu_upper(U_ADD, 14, 7, 6, 9, BC_NONE);
+                                vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(0))), 7);
+                            }
+#endif
                             
                             p1 += 4; 
                             p0++; 
                             
+#ifndef TARGET_PC
                             asm volatile 
                             ("
                             .set noreorder
@@ -1990,12 +2186,47 @@ void npCalcSkin(void* pwp, int obj_n, int* sknp)
                             .set reorder
                             " : : "f"(lv), "r"(p0),  "r"(p1), "r"(np.mxp[rg0][0]), "r"(np.mxp[rg0][1]) : "t0" 
                             );
+#else
+                            { /* asm2c */
+                                ee_reg R8 = {{0}};
+                                ee_reg op0 = {{0}};
+                                ee_reg op1 = {{0}};
+                                ee_reg op2 = {{0}};
+                                ee_reg op3 = {{0}};
+                                ee_reg op4 = {{0}};
+                                op0.f[0] = (float)(lv);
+                                op1.sd[0] = (int32_t)(uintptr_t)(p0);
+                                op2.sd[0] = (int32_t)(uintptr_t)(p1);
+                                op3.sd[0] = (int32_t)(uintptr_t)(np.mxp[rg0][0]);
+                                op4.sd[0] = (int32_t)(uintptr_t)(np.mxp[rg0][1]);
+                                R8.sd[0] = (int32_t)(ee_f2u(op0.f[0]));
+                                vu_load_vf(13, &R8);
+                                vu_load_vf(4, EE_PTR((op1.w[0] + (uint32_t)(0))));
+                                vu_load_vf(5, EE_PTR((op3.w[0] + (uint32_t)(0))));
+                                vu_load_vf(6, EE_PTR((op3.w[0] + (uint32_t)(16))));
+                                vu_load_vf(7, EE_PTR((op3.w[0] + (uint32_t)(32))));
+                                vu_load_vf(8, EE_PTR((op4.w[0] + (uint32_t)(0))));
+                                vu_load_vf(9, EE_PTR((op4.w[0] + (uint32_t)(16))));
+                                vu_load_vf(10, EE_PTR((op4.w[0] + (uint32_t)(32))));
+                                vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+                                vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+                                vu_upper(U_MADD, 14, 11, 7, 4, BC_Z);
+                                vu_upper(U_MULA, 14, 0, 8, 4, BC_X);
+                                vu_upper(U_MADDA, 14, 0, 9, 4, BC_Y);
+                                vu_upper(U_MADD, 14, 12, 10, 4, BC_Z);
+                                vu_upper(U_SUB, 14, 5, 12, 11, BC_NONE);
+                                vu_upper(U_MUL, 14, 6, 5, 13, BC_X);
+                                vu_upper(U_ADD, 14, 7, 6, 11, BC_NONE);
+                                vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(0))), 7);
+                            }
+#endif
                             
                             p1 += 4; 
                             p0++;
                         } 
                         else 
                         { 
+#ifndef TARGET_PC
                             asm volatile 
                             ("
                             .set noreorder
@@ -2025,7 +2256,32 @@ void npCalcSkin(void* pwp, int obj_n, int* sknp)
                                 
                             .set reorder
                             " : : "r"(p0), "r"(p1), "r"(np.mxp[rg0][1]), "r"(op)
-                            ); 
+                            );
+#else
+                            { /* asm2c */
+                                ee_reg op0 = {{0}};
+                                ee_reg op1 = {{0}};
+                                ee_reg op2 = {{0}};
+                                op0.sd[0] = (int32_t)(uintptr_t)(p0);
+                                op1.sd[0] = (int32_t)(uintptr_t)(p1);
+                                op2.sd[0] = (int32_t)(uintptr_t)(np.mxp[rg0][1]);
+                                vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+                                vu_load_vf(11, EE_PTR((op0.w[0] + (uint32_t)(16))));
+                                vu_load_vf(5, EE_PTR((op2.w[0] + (uint32_t)(0))));
+                                vu_load_vf(6, EE_PTR((op2.w[0] + (uint32_t)(16))));
+                                vu_load_vf(7, EE_PTR((op2.w[0] + (uint32_t)(32))));
+                                vu_load_vf(8, EE_PTR((op2.w[0] + (uint32_t)(48))));
+                                vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+                                vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+                                vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+                                vu_upper(U_MADD, 14, 9, 8, 0, BC_W);
+                                vu_upper(U_MULA, 14, 0, 5, 11, BC_X);
+                                vu_upper(U_MADDA, 14, 0, 6, 11, BC_Y);
+                                vu_upper(U_MADD, 14, 10, 7, 11, BC_Z);
+                                vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(0))), 9);
+                                vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(16))), 10);
+                            }
+#endif 
                             
                             p0 += 2; 
                             p1 += 8; 
@@ -2097,6 +2353,7 @@ void npInitCalcSkinFM(void* pwp, int obj_n, int* sknp)
                     np.sknp++; 
                 }
                 
+#ifndef TARGET_PC
                 asm volatile 
                 ("
                 .set noreorder
@@ -2129,6 +2386,35 @@ void npInitCalcSkinFM(void* pwp, int obj_n, int* sknp)
                 .set reorder
                 " : : "r"(&owp->mtx), "r"(&((BH_PWORK*)pwp)->px), "r"(np.mxp[i][0]), "r"(owp) 
                 );
+#else
+                { /* asm2c */
+                    ee_reg R8 = {{0}}, R9 = {{0}};
+                    ee_reg op0 = {{0}};
+                    ee_reg op1 = {{0}};
+                    ee_reg op2 = {{0}};
+                    op0.sd[0] = (int32_t)(uintptr_t)(&owp->mtx);
+                    op1.sd[0] = (int32_t)(uintptr_t)(&((BH_PWORK*)pwp)->px);
+                    op2.sd[0] = (int32_t)(uintptr_t)(np.mxp[i][0]);
+                    R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+                    R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+                    R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(8)));
+                    ee_pcpyld(&R8, &R9, &R8);
+                    vu_load_vf(8, &R8);
+                    vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(48))));
+                    vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+                    vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(16))));
+                    vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(32))));
+                    vu_upper(U_SUB, 14, 7, 7, 8, BC_NONE);
+                    vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(0))), 4);
+                    vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(16))), 5);
+                    vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(32))), 6);
+                    vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(48))), 7);
+                    vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(64))), 4);
+                    vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(80))), 5);
+                    vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(96))), 6);
+                    vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(112))), 7);
+                }
+#endif
                     
                 njRotXYZ(np.mxp[i][0], -op->ang[0], -op->ang[1], -op->ang[2]); 
             }
@@ -2210,6 +2496,7 @@ void npCalcSkinFM(void* pwp, int obj_n, int* sknp)
                             
                             if (lv != 1.0f) 
                             { 
+#ifndef TARGET_PC
                                 asm volatile 
                                 ("
                                 .set noreorder
@@ -2254,10 +2541,49 @@ void npCalcSkinFM(void* pwp, int obj_n, int* sknp)
                                 .set reorder
                                 " : : "f"(lv), "r"(p0), "r"(p1), "r"(np.mxp[rg0][0]), "r"(np.mxp[rg0][1]) : "t0" 
                                 );
+#else
+                                { /* asm2c */
+                                    ee_reg R8 = {{0}};
+                                    ee_reg op0 = {{0}};
+                                    ee_reg op1 = {{0}};
+                                    ee_reg op2 = {{0}};
+                                    ee_reg op3 = {{0}};
+                                    ee_reg op4 = {{0}};
+                                    op0.f[0] = (float)(lv);
+                                    op1.sd[0] = (int32_t)(uintptr_t)(p0);
+                                    op2.sd[0] = (int32_t)(uintptr_t)(p1);
+                                    op3.sd[0] = (int32_t)(uintptr_t)(np.mxp[rg0][0]);
+                                    op4.sd[0] = (int32_t)(uintptr_t)(np.mxp[rg0][1]);
+                                    R8.sd[0] = (int32_t)(ee_f2u(op0.f[0]));
+                                    vu_load_vf(13, &R8);
+                                    vu_load_vf(4, EE_PTR((op1.w[0] + (uint32_t)(0))));
+                                    vu_load_vf(5, EE_PTR((op3.w[0] + (uint32_t)(0))));
+                                    vu_load_vf(6, EE_PTR((op3.w[0] + (uint32_t)(16))));
+                                    vu_load_vf(7, EE_PTR((op3.w[0] + (uint32_t)(32))));
+                                    vu_load_vf(8, EE_PTR((op3.w[0] + (uint32_t)(48))));
+                                    vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+                                    vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+                                    vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+                                    vu_upper(U_MADD, 14, 9, 8, 0, BC_W);
+                                    vu_load_vf(5, EE_PTR((op4.w[0] + (uint32_t)(0))));
+                                    vu_load_vf(6, EE_PTR((op4.w[0] + (uint32_t)(16))));
+                                    vu_load_vf(7, EE_PTR((op4.w[0] + (uint32_t)(32))));
+                                    vu_load_vf(8, EE_PTR((op4.w[0] + (uint32_t)(48))));
+                                    vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+                                    vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+                                    vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+                                    vu_upper(U_MADD, 14, 10, 8, 0, BC_W);
+                                    vu_upper(U_SUB, 14, 5, 10, 9, BC_NONE);
+                                    vu_upper(U_MUL, 14, 6, 5, 13, BC_X);
+                                    vu_upper(U_ADD, 14, 7, 6, 9, BC_NONE);
+                                    vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(0))), 7);
+                                }
+#endif
                                 
                                 p1 += 4; 
                                 p0++; 
                                 
+#ifndef TARGET_PC
                                 asm volatile 
                                 ("
                                 .set noreorder
@@ -2297,12 +2623,47 @@ void npCalcSkinFM(void* pwp, int obj_n, int* sknp)
                                 .set reorder
                                 " : : "f"(lv), "r"(p0),  "r"(p1), "r"(np.mxp[rg0][0]), "r"(np.mxp[rg0][1]) : "t0" 
                                 );
+#else
+                                { /* asm2c */
+                                    ee_reg R8 = {{0}};
+                                    ee_reg op0 = {{0}};
+                                    ee_reg op1 = {{0}};
+                                    ee_reg op2 = {{0}};
+                                    ee_reg op3 = {{0}};
+                                    ee_reg op4 = {{0}};
+                                    op0.f[0] = (float)(lv);
+                                    op1.sd[0] = (int32_t)(uintptr_t)(p0);
+                                    op2.sd[0] = (int32_t)(uintptr_t)(p1);
+                                    op3.sd[0] = (int32_t)(uintptr_t)(np.mxp[rg0][0]);
+                                    op4.sd[0] = (int32_t)(uintptr_t)(np.mxp[rg0][1]);
+                                    R8.sd[0] = (int32_t)(ee_f2u(op0.f[0]));
+                                    vu_load_vf(13, &R8);
+                                    vu_load_vf(4, EE_PTR((op1.w[0] + (uint32_t)(0))));
+                                    vu_load_vf(5, EE_PTR((op3.w[0] + (uint32_t)(0))));
+                                    vu_load_vf(6, EE_PTR((op3.w[0] + (uint32_t)(16))));
+                                    vu_load_vf(7, EE_PTR((op3.w[0] + (uint32_t)(32))));
+                                    vu_load_vf(8, EE_PTR((op4.w[0] + (uint32_t)(0))));
+                                    vu_load_vf(9, EE_PTR((op4.w[0] + (uint32_t)(16))));
+                                    vu_load_vf(10, EE_PTR((op4.w[0] + (uint32_t)(32))));
+                                    vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+                                    vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+                                    vu_upper(U_MADD, 14, 11, 7, 4, BC_Z);
+                                    vu_upper(U_MULA, 14, 0, 8, 4, BC_X);
+                                    vu_upper(U_MADDA, 14, 0, 9, 4, BC_Y);
+                                    vu_upper(U_MADD, 14, 12, 10, 4, BC_Z);
+                                    vu_upper(U_SUB, 14, 5, 12, 11, BC_NONE);
+                                    vu_upper(U_MUL, 14, 6, 5, 13, BC_X);
+                                    vu_upper(U_ADD, 14, 7, 6, 11, BC_NONE);
+                                    vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(0))), 7);
+                                }
+#endif
                                 
                                 p1 += 4; 
                                 p0++;
                             } 
                             else 
                             { 
+#ifndef TARGET_PC
                                 asm volatile 
                                 ("
                                 .set noreorder
@@ -2332,7 +2693,32 @@ void npCalcSkinFM(void* pwp, int obj_n, int* sknp)
                                     
                                 .set reorder
                                 " : : "r"(p0), "r"(p1), "r"(np.mxp[rg0][1]), "r"(op)
-                                ); 
+                                );
+#else
+                                { /* asm2c */
+                                    ee_reg op0 = {{0}};
+                                    ee_reg op1 = {{0}};
+                                    ee_reg op2 = {{0}};
+                                    op0.sd[0] = (int32_t)(uintptr_t)(p0);
+                                    op1.sd[0] = (int32_t)(uintptr_t)(p1);
+                                    op2.sd[0] = (int32_t)(uintptr_t)(np.mxp[rg0][1]);
+                                    vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+                                    vu_load_vf(11, EE_PTR((op0.w[0] + (uint32_t)(16))));
+                                    vu_load_vf(5, EE_PTR((op2.w[0] + (uint32_t)(0))));
+                                    vu_load_vf(6, EE_PTR((op2.w[0] + (uint32_t)(16))));
+                                    vu_load_vf(7, EE_PTR((op2.w[0] + (uint32_t)(32))));
+                                    vu_load_vf(8, EE_PTR((op2.w[0] + (uint32_t)(48))));
+                                    vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+                                    vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+                                    vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+                                    vu_upper(U_MADD, 14, 9, 8, 0, BC_W);
+                                    vu_upper(U_MULA, 14, 0, 5, 11, BC_X);
+                                    vu_upper(U_MADDA, 14, 0, 6, 11, BC_Y);
+                                    vu_upper(U_MADD, 14, 10, 7, 11, BC_Z);
+                                    vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(0))), 9);
+                                    vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(16))), 10);
+                                }
+#endif 
                                 
                                 p0 += 2; 
                                 p1 += 8; 

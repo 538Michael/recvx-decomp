@@ -132,7 +132,11 @@ void PS2_Render_Tex_Sub();
 extern unsigned int PS2_Render_tex_sub_flag;
 extern float Ps2AddPrimPrio;
 extern int ViewType;
+#ifdef TARGET_PC
+extern unsigned char Ps2_PBUFF[PC_PBUFF_SIZE];
+#else
 extern unsigned char Ps2_PBUFF[1835008];
+#endif
 extern unsigned int Ps2_use_pt_flag;
 extern sceGsDBuffDc Db;
 extern PS2_GS_SAVE Ps2_gs_save;

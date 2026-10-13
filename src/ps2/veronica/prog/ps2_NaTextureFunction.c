@@ -97,7 +97,11 @@ void	njInitTexture(NJS_TEXMEMLIST *addr,Uint32 n)
     
     Ps2_now_free = Ps2_tex_buff;               
     
+#ifdef TARGET_PC
+    Ps2_free_texmemsize = PC_TEX_HEAP_SIZE;
+#else
     Ps2_free_texmemsize = 10485760;             
+#endif
     
     Ps2_free_last = (unsigned char*)Ps2_tex_buff + Ps2_free_texmemsize;    
     
@@ -394,6 +398,15 @@ int njSetTextureNumSys(unsigned int n)
 // 100% matching!
 void	njReleaseTextureAll(void)
 {
+#ifdef TARGET_PC
+    if (coop_on || appear_on)
+    {
+        coop_textures_released();   /* player 2's textures go with everything else */
+    }
+    pc_lobby_textures_released();   /* the lobby's previews (and the actor slots when co-op is off) */
+    spawn_textures_released();
+    trade_textures_released();      /* the trade screen's item icons */
+#endif
     njInitTexture(Ps2_tex_info, Ps2_texmemlist_num);
 }
 

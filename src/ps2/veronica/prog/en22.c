@@ -2383,8 +2383,14 @@ void bhEne22_SparkEffect(BH_PWORK* epw, int frm)
             for (i = 0; i < 20; argb++, i++)
             {
                 no = (2 * i + 20) % 40;
+#ifdef TARGET_PC
+                /* bhEne22_GetDengekiColorAddr returns NULL where retail returned a stale register */
+                if (ulpMatAdrTbl[j][no][0]) *ulpMatAdrTbl[j][no][0] = *argb;
+                if (ulpMatAdrTbl[j][no][1]) *ulpMatAdrTbl[j][no][1] = *argb;
+#else
                 *ulpMatAdrTbl[j][no][0] = *argb;
                 *ulpMatAdrTbl[j][no][1] = *argb;
+#endif
             }
         }
 
@@ -2458,6 +2464,9 @@ unsigned int* bhEne22_GetDengekiColorAddr(NJS_CNK_OBJECT* objp, int no)
             break;
         }
     }
+#ifdef TARGET_PC
+    return NULL;  /* retail returns a stale register here */
+#endif
 }
 
 // 100% matching!

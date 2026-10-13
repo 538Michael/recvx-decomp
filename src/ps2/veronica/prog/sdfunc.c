@@ -656,7 +656,7 @@ int LoadSoundPackFile(char* SpqFile)
         }
         else 
         {
-            memcpy(Room_SoundEnv, &pSdReadBuf[pSpqHeader->Offset], sizeof(RM_SNDENV)); 
+            memcpy(&Room_SoundEnv, &pSdReadBuf[pSpqHeader->Offset], sizeof(RM_SNDENV)); 
             
             FxLevelTimer = 16;
             
@@ -745,6 +745,12 @@ void RequestRoomSoundBank(int StageNo, int RoomNo, int CaseNo) {
     ResetRoomSoundEnvParam();
     sprintf(SpqFileName, "RM_%01u%02u%01u.SPQ", StageNo, RoomNo, CaseNo);
     SpqKeyCode = CaseNo + ((StageNo * 0x3E8) + (RoomNo * 0xA));
+#ifdef TARGET_PC
+    {
+        extern int pc_mod_room_sound_key(int key);
+        SpqKeyCode = pc_mod_room_sound_key(SpqKeyCode);
+    }
+#endif
     SpqFileReadRequestFlag = 1;
 }
 
@@ -1412,6 +1418,14 @@ void SetSyukanModeSoundParam() {
     }
 }
 
+#ifdef TARGET_PC
+/* the player's voice (bank 4) from the voice bank of the character the player appears as, an extra
+   bank (pc/glue/coop_glue.c, pc/src/audio/snd_iop.c); 0: bank 4 as loaded (the character played),
+   -1: none (co-op: the partner's own game voices it) */
+int pc_player_voice(int SeNo);
+extern int pc_se_xbank;
+#endif
+
 // 100% matching!
 void CallPlayerVoice(int SeNo) {
     SetupSeGenericParm(7, SeNo, &PlayerPos, 1, GsSlotInfoSe[7].Flag);
@@ -1419,7 +1433,16 @@ void CallPlayerVoice(int SeNo) {
     if (!(GsSlotInfoSe[7].Flag & 2)) {
         RequestInfo.Volume += Room_SoundEnv.VolPlayerVoice;
     }
+#ifdef TARGET_PC
+    if (RequestInfo.BankNo == 4 && (pc_se_xbank = pc_player_voice(SeNo)) < 0) {
+        pc_se_xbank = 0;
+        return;
+    }
+#endif
     ExPlaySe(&RequestInfo);
+#ifdef TARGET_PC
+    pc_se_xbank = 0;
+#endif
 }
 
 // 100% matching!
@@ -1704,6 +1727,15 @@ void CallDoorSe(unsigned int No)
     ExPlayMidi(&RequestInfo);
 }
 
+#ifdef TARGET_PC
+/* Enemy sounds of types the room's bank 3 lacks (docs/ENEMIES.md 2.3): per request, the extra bank the
+   spawner loaded for the requesting enemy's type (spawn_glue.c; 0: the room's, -1: none, silence),
+   used when the sound manager plays it (CallEnemySeMain) */
+static signed char pc_enemy_se_bank[128];
+int spawn_sound_bank(int enemy_no);
+extern int pc_se_xbank;
+#endif
+
 // 100% matching!
 void RequestEnemySeBasic(int EnemyNo, NJS_POINT3* pPos, int SeNo, int Flag, int FadeRate)
 {
@@ -1712,6 +1744,9 @@ void RequestEnemySeBasic(int EnemyNo, NJS_POINT3* pPos, int SeNo, int Flag, int 
 
     eip = EnemyInfo; 
     eip = &eip[EnemyNo];
+#ifdef TARGET_PC
+    pc_enemy_se_bank[EnemyNo & 127] = (signed char)spawn_sound_bank(EnemyNo);
+#endif
     
     eip->Pos = *pPos;
     
@@ -2323,6 +2358,18 @@ void CallEnemySeMain(unsigned int SlotNo, int SeNo, char Pan, char Vol, int Flag
         StopSe(SlotNo);
         RequestInfo.BankNo = ((SeNo >> 0x8) & 0xF);
         RequestInfo.ListNo = SeNo;
+#ifdef TARGET_PC
+        if (RequestInfo.BankNo == 3)
+        {
+            pc_se_xbank = pc_enemy_se_bank[EnemySlotInfo[SlotNo].EnemyNo & 127];
+            
+            if (pc_se_xbank < 0)
+            {
+                pc_se_xbank = 0;
+                RequestInfo.ListNo = -1;   /* its bank is not loaded: silence, not another type's sound */
+            }
+        }
+#endif
         if (FadeRate == 0) 
         {
             StopFadeSe(SlotNo);
@@ -2340,6 +2387,9 @@ void CallEnemySeMain(unsigned int SlotNo, int SeNo, char Pan, char Vol, int Flag
     RequestInfo.PitchDelayTime = -1;
     RequestInfo.FxInput = -1;
     ExPlaySe(&RequestInfo);
+#ifdef TARGET_PC
+    pc_se_xbank = 0;
+#endif
     if ((Flag != 0) && (FadeRate != 0)) 
     {
         RequestSeFadeFunctionEx(SlotNo, -0x7F, Vol, FadeRate);

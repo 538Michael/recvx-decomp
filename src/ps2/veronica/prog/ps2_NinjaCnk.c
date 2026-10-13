@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_NinjaCnk.h"
 #include "../../../ps2/veronica/prog/objitm.h"
 #include "../../../ps2/veronica/prog/ps2_dummy.h"
@@ -537,6 +540,28 @@ void    njCnkEasyDrawModel( NJS_CNK_MODEL *model )
 }
 
 // 100% matching!
+#ifdef TARGET_PC
+/* hor+ widescreen: each camera of a room hides room parts it cannot see (cut.c, hidobj
+   lists authored for the 4:3 view). Such a part is drawn anyway if it lies entirely outside
+   the original 4:3 view, in the widened margins; hidden parts inside it (occluders between
+   camera and player) or reaching the camera stay hidden. */
+static int pc_show_hidden(NJS_CNK_OBJECT* obj)
+{
+    NJS_CNK_MODEL* m = obj->model;
+    NJS_POINT3 c;
+    float z, r, sx, half;
+    if (tps_cam_active) return pc_is_room_object(obj);   /* third person: every room part */
+    if (pc_hor_scale() <= 1.0f || m == NULL || m->r <= 0 || !pc_is_room_object(obj)) return 0;
+    njCalcPoint(NULL, &m->center, &c);
+    if (c.z - m->r < _fNaViwClipNear) return 0;
+    z = fabsf(_nj_screen_.dist / c.z);
+    r = m->r * z * fNaViwAspectW;
+    sx = c.x * z;
+    half = _nj_screen_.w / 2.0f;
+    return sx - r > half || sx + r < -half;
+}
+#endif
+
 void    njCnkEasyDrawObject( NJS_CNK_OBJECT *model )
 {
     unsigned int ulFlags; 
@@ -565,7 +590,11 @@ void    njCnkEasyDrawObject( NJS_CNK_OBJECT *model )
             njScaleEx((NJS_VECTOR*)&model->scl[0]);
         }
     
+#ifndef TARGET_PC
         if ((ulFlags & 0x8)) 
+#else
+        if ((ulFlags & 0x8) && !pc_show_hidden(model))
+#endif
         {
             lDrawResult = 0;
         } 
@@ -623,7 +652,11 @@ void    njCnkEasyMultiDrawObject( NJS_CNK_OBJECT *model )
             njScaleEx((NJS_VECTOR*)&model->scl[0]);
         }
     
+#ifndef TARGET_PC
         if ((ulFlags & 0x8)) 
+#else
+        if ((ulFlags & 0x8) && !pc_show_hidden(model))
+#endif
         {
             lDrawResult = 0;
         } 
@@ -671,6 +704,20 @@ void njCnkSetCurrentDrawMode(unsigned int ulMode)
 }
 
 // 99.55% matching
+#ifdef TARGET_PC
+/* every chunk model draw is tagged for the renderer's frame interpolation */
+static int njCnkDrawModelLocal_(NJS_CNK_MODEL* pModel);
+int njCnkDrawModelLocal(NJS_CNK_MODEL* pModel)
+{
+    int r;
+    pc_mesh_begin(pModel);
+    r = njCnkDrawModelLocal_(pModel);
+    pc_mesh_end();
+    return r;
+}
+#define njCnkDrawModelLocal njCnkDrawModelLocal_
+static
+#endif
 int njCnkDrawModelLocal(NJS_CNK_MODEL* pModel) 
 {
     NJS_POINT3 Center;      
@@ -733,11 +780,22 @@ int njCnkDrawModelLocal(NJS_CNK_MODEL* pModel)
             }
         }
     }
-    
-    njPushMatrixEx();
-    
+
+#ifdef TARGET_PC
+    /* index offset + count of the vertex chunk: past the vertex work buffer the PS2 wrote over
+       whatever followed it (docs/MAPS.md 7); such a node is not drawn */
     pCnk = (CHUNK_HEAD*)pModel->vlist;
-    
+
+    if ((pCnk != NULL) && ((((unsigned short*)pCnk)[2] + ((unsigned short*)pCnk)[3]) > iNaCnkVerBufMax))
+    {
+        return 0;
+    }
+#endif
+
+    njPushMatrixEx();
+
+    pCnk = (CHUNK_HEAD*)pModel->vlist;
+
     if (pCnk != NULL)
     {
         if (pCnk->ucType == 51)
@@ -773,6 +831,20 @@ int njCnkDrawModelLocal(NJS_CNK_MODEL* pModel)
     return 1;
 }
 
+#ifdef TARGET_PC
+#undef njCnkDrawModelLocal
+static int njCnkDrawModelLocalMod_(NJS_CNK_MODEL* pModel);
+int njCnkDrawModelLocalMod(NJS_CNK_MODEL* pModel)
+{
+    int r;
+    pc_mesh_begin(pModel);
+    r = njCnkDrawModelLocalMod_(pModel);
+    pc_mesh_end();
+    return r;
+}
+#define njCnkDrawModelLocalMod njCnkDrawModelLocalMod_
+static
+#endif
 // 99.41% matching
 int njCnkDrawModelLocalMod(NJS_CNK_MODEL* pModel)
 {
@@ -858,6 +930,9 @@ int njCnkDrawModelLocalMod(NJS_CNK_MODEL* pModel)
 }
 
 // 100% matching!
+#ifdef TARGET_PC
+#undef njCnkDrawModelLocalMod
+#endif
 CHUNK_HEAD* njCnkCn(CHUNK_HEAD* pCnk)
 {
     return (CHUNK_HEAD*)&pCnk->usSize;
@@ -1348,6 +1423,7 @@ CHUNK_HEAD* njCnkCvVnPs2(CHUNK_HEAD* pCnk)
     v[10][2] = lp[3].fB;
     v[10][3] = lp[3].fI;
     
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder
@@ -1366,7 +1442,26 @@ CHUNK_HEAD* njCnkCvVnPs2(CHUNK_HEAD* pCnk)
         lqc2 vf14, 0xA0(v1) 
     .set reorder
     " : : "r"(v) : "$v1", "memory" 
-    ); 
+    );
+#else
+    { /* asm2c */
+        ee_reg R3 = {{0}};
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(v);
+        R3.d[0] = op0.d[0];
+        vu_load_vf(4, EE_PTR((R3.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((R3.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((R3.w[0] + (uint32_t)(32))));
+        vu_load_vf(7, EE_PTR((R3.w[0] + (uint32_t)(48))));
+        vu_load_vf(8, EE_PTR((R3.w[0] + (uint32_t)(64))));
+        vu_load_vf(9, EE_PTR((R3.w[0] + (uint32_t)(80))));
+        vu_load_vf(10, EE_PTR((R3.w[0] + (uint32_t)(96))));
+        vu_load_vf(11, EE_PTR((R3.w[0] + (uint32_t)(112))));
+        vu_load_vf(12, EE_PTR((R3.w[0] + (uint32_t)(128))));
+        vu_load_vf(13, EE_PTR((R3.w[0] + (uint32_t)(144))));
+        vu_load_vf(14, EE_PTR((R3.w[0] + (uint32_t)(160))));
+    }
+#endif 
         
     pCnk = (CHUNK_HEAD*)((int)pCnk | 0x30000000);
     
@@ -1382,6 +1477,7 @@ CHUNK_HEAD* njCnkCvVnPs2(CHUNK_HEAD* pCnk)
     
     njSetMatrixCN(pNaMatMatrixStuckPtr);
     
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder
@@ -1405,7 +1501,31 @@ CHUNK_HEAD* njCnkCvVnPs2(CHUNK_HEAD* pCnk)
         mtc1     t3, %0  
     .set reorder
     " : "=f"(fog) : "r"(pBuffer), "r"(fpCnk) : "$f20", "$s1", "$s2", "memory" 
-    ); 
+    );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        op0.f[0] = (float)(fog);
+        op1.sd[0] = (int32_t)(uintptr_t)(pBuffer);
+        op2.sd[0] = (int32_t)(uintptr_t)(fpCnk);
+        vu0_callms(VU0_ADDR_VU0_CALCPOINT_INIT);
+        vu_load_vf(4, EE_PTR((op2.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op2.w[0] + (uint32_t)(16))));
+        vu0_callms(VU0_ADDR_VU0_CALCPOINT);
+        vu_store_vf(&R8, 7);
+        vu_store_vf(&R9, 18);
+        vu_store_vf(&R10, 6);
+        ee_sq((op1.w[0] + (uint32_t)(16)), &R8);
+        ee_sq((op1.w[0] + (uint32_t)(32)), &R9);
+        ee_sq((op1.w[0] + (uint32_t)(48)), &R10);
+        vu_store_vf(&R11, 11);
+        op0.f[0] = ee_u2f(R11.w[0]);
+        fog = op0.f[0];
+    }
+#endif 
         
     ulIndex--;
     
@@ -1415,6 +1535,7 @@ CHUNK_HEAD* njCnkCvVnPs2(CHUNK_HEAD* pCnk)
     
     while (ulIndex != 0)
     {
+#ifndef TARGET_PC
         asm volatile 
         ("
         .set noreorder
@@ -1425,10 +1546,20 @@ CHUNK_HEAD* njCnkCvVnPs2(CHUNK_HEAD* pCnk)
             nop
         .set reorder
         " : : "r"(fpCnk) : "$s2", "memory" 
-        ); 
+        );
+#else
+        { /* asm2c */
+            ee_reg op0 = {{0}};
+            op0.sd[0] = (int32_t)(uintptr_t)(fpCnk);
+            vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+            vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(16))));
+            vu0_callms(VU0_ADDR_VU0_CALCPOINT);
+        }
+#endif 
             
         pBuffer[-1].fFog = njCalcFogPowerEx(fog);
         
+#ifndef TARGET_PC
         asm volatile 
         ("
         .set noreorder
@@ -1449,7 +1580,29 @@ CHUNK_HEAD* njCnkCvVnPs2(CHUNK_HEAD* pCnk)
             sw       t0, 0(%1)
         .set reorder
         " : "=f"(fog) : "r"(&Vu0ClipFlag), "r"(pBuffer) : "$f20", "$v0", "$s1", "memory" 
-        ); 
+        );
+#else
+        { /* asm2c */
+            ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+            ee_reg op0 = {{0}};
+            ee_reg op1 = {{0}};
+            ee_reg op2 = {{0}};
+            op0.f[0] = (float)(fog);
+            op1.sd[0] = (int32_t)(uintptr_t)(&Vu0ClipFlag);
+            op2.sd[0] = (int32_t)(uintptr_t)(pBuffer);
+            vu_store_vf(&R8, 7);
+            vu_store_vf(&R9, 18);
+            vu_store_vf(&R10, 6);
+            ee_sq((op2.w[0] + (uint32_t)(16)), &R8);
+            ee_sq((op2.w[0] + (uint32_t)(32)), &R9);
+            ee_sq((op2.w[0] + (uint32_t)(48)), &R10);
+            vu_store_vf(&R11, 11);
+            op0.f[0] = ee_u2f(R11.w[0]);
+            R8.sd[0] = (int32_t)(vu_cfc2(11));
+            EE_SW((op1.w[0] + (uint32_t)(0)), R8.d[0]);
+            fog = op0.f[0];
+        }
+#endif 
 
         ulIndex--;
         
@@ -1460,12 +1613,18 @@ CHUNK_HEAD* njCnkCvVnPs2(CHUNK_HEAD* pCnk)
     
     pBuffer[-1].fFog = njCalcFogPowerEx(fog);
     
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder 
         vcallms VU0_CALCPOINT_END 
     .set reorder 
     ");
+#else
+    { /* asm2c */
+        vu0_callms(VU0_ADDR_VU0_CALCPOINT_END);
+    }
+#endif
     
     return (CHUNK_HEAD*)fpCnk;
 }
@@ -1775,6 +1934,9 @@ CHUNK_HEAD* njCnkCs(CHUNK_HEAD* pCnk)
     
     for ( ; usStrip; usStrip--)
     {
+#ifdef TARGET_PC
+        pc_mesh_strip(uspCnk);
+#endif
         pS = NaCnkStrBufTop;
         
         usClip = *uspCnk & 0x8000; 
@@ -1829,6 +1991,7 @@ int _CVV(float* v0)
 {
     register int ret;
     
+#ifndef TARGET_PC
     asm volatile 
     {
                       
@@ -1853,7 +2016,19 @@ int _CVV(float* v0)
         jr           ra
         nop
             
-    } 
+    }
+#else
+    { /* hand-translated: transform v0 by the vf24..vf27 matrix, clip-test, return the clip flags */
+        vu_load_vf(4, v0);
+        vu_upper(U_MULA, 15, 0, 24, 4, BC_X);
+        vu_upper(U_MADDA, 15, 0, 25, 4, BC_Y);
+        vu_upper(U_MADDA, 15, 0, 26, 4, BC_Z);
+        vu_upper(U_MADD, 15, 5, 27, 0, BC_W);
+        vu_clipw(5, 5);
+        ret = (int)vu_cfc2(18);
+    }
+    return ret; /* the asm returned via 'jr ra' with ret in v0 */
+#endif 
 }
 
 // 99.22% matching
@@ -1998,6 +2173,9 @@ CHUNK_HEAD* njCnkCsUvh(CHUNK_HEAD* pCnk)
         
         for (; usStrip; usStrip--)  
         {
+#ifdef TARGET_PC
+            pc_mesh_strip(uspCnk);
+#endif
             usClip = *uspCnk & 0x8000;
             
             usNum = usMax = (usClip != 0) ? ~*uspCnk + 1 : *uspCnk; 
@@ -2034,6 +2212,7 @@ CHUNK_HEAD* njCnkCsUvh(CHUNK_HEAD* pCnk)
                 ulpP[4] = (SCE_GIF_SET_TAG(0, SCE_GS_TRUE, SCE_GS_TRUE, 0, SCE_GIF_PACKED, 3) | ulType) | usMax;
                 ulpP[5] = GIF_REGLIST(SCE_GS_ST, SCE_GS_RGBAQ, SCE_GS_XYZF2);
 
+#ifndef TARGET_PC
                 asm volatile
                 ("
                 .set noreorder
@@ -2098,6 +2277,10 @@ CHUNK_HEAD* njCnkCsUvh(CHUNK_HEAD* pCnk)
                 .set reorder
                 " : "r"(coflag) : "r"(uspCnk), "r"(usMax), "m"(pNaCnkVerBufTop) : "memory"
                 );
+#else
+                /* asm2c of the above, inlined (pc/src/ps2/vu.c vu_strip_clip) */
+                coflag = vu_strip_clip(uspCnk, usMax, pNaCnkVerBufTop);
+#endif
                     
                 if (coflag != 0)
                 {
@@ -2106,17 +2289,36 @@ CHUNK_HEAD* njCnkCsUvh(CHUNK_HEAD* pCnk)
                 else
                 {
                 label:
+#ifdef TARGET_PC
+                if (pc_native_3d()) 
+                {
+                    /* native 3D path: the GPU projects and clips (pc/glue/native_glue.c) */
+                    pc_native_strip(uspCnk, usMax, pNaCnkVerBufTop, (unsigned int)((ulType >> 47) & 0x7FF),
+                                    usColorCalc, vu1func_tag == SCE_VIF1_SET_MSCAL(700, 0), 0.0009775171f);
+                    uspCnk += usMax * 3;
+                } 
+                else
+#endif
                 {
                     float zbuff[4] = { -Ps2_zbuff_b, 0.0009775171f, -Ps2_zbuff_a, 65534.0f }; 
                     
+#ifndef TARGET_PC
                     asm volatile
                     ("
                     .set noreorder
                         lqc2 vf8, 0(%0)
                     .set reorder
                     " : : "r"(zbuff) : "v1", "memory"
-                    );  
+                    );
+#else
+                    { /* asm2c */
+                        ee_reg op0 = {{0}};
+                        op0.sd[0] = (int32_t)(uintptr_t)(zbuff);
+                        vu_load_vf(8, EE_PTR((op0.w[0] + (uint32_t)(0))));
+                    }
+#endif  
    
+#ifndef TARGET_PC
                     asm volatile
                     ("
                     .set noreorder
@@ -2192,6 +2394,65 @@ CHUNK_HEAD* njCnkCsUvh(CHUNK_HEAD* pCnk)
                     .set reorder
                     " : : "r"(pS), "r"(uspCnk), "m"(pNaCnkVerBufTop), "r"(usMax), "r"(usColorCalc) : "t0", "t1", "t2", "memory"
                     );
+#else
+                    { /* asm2c */
+                        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}}, R12 = {{0}};
+                        int ee_cond;
+                        const ee_reg ee_zero = {{0}};
+                        ee_reg op0 = {{0}};
+                        ee_reg op1 = {{0}};
+                        ee_reg op2 = {{0}};
+                        ee_reg op3 = {{0}};
+                        ee_reg op4 = {{0}};
+                        op0.sd[0] = (int32_t)(uintptr_t)(pS);
+                        op1.sd[0] = (int32_t)(uintptr_t)(uspCnk);
+                        op2.sd[0] = (int32_t)(uintptr_t)(pNaCnkVerBufTop);
+                        op3.sd[0] = (int32_t)(uintptr_t)(usMax);
+                        op4.sd[0] = (int32_t)(uintptr_t)(usColorCalc);
+                        op3.d[0] = op3.d[0] & (uint64_t)(uint16_t)(65535);
+                        R11.d[0] = op0.d[0];
+                        R12.d[0] = op1.d[0];
+                        R8.d[0] = ee_ldl(R8.d[0], (R12.w[0] + (uint32_t)(7)));
+                        R8.d[0] = ee_ldr(R8.d[0], (R12.w[0] + (uint32_t)(0)));
+                        R12.sd[0] = (int32_t)(R12.w[0] + (uint32_t)(6));
+                        R9.d[0] = R8.d[0] & (uint64_t)(uint16_t)(65535);
+                        R8.d[0] = R8.d[0] >> 16;
+                        R9.sd[0] = (int32_t)(R9.w[0] << 6);
+                        R10.sd[0] = (int32_t)(op2.w[0] + R9.w[0]);
+                    l_002D2B38:;
+                        vu_load_vf(4, EE_PTR((R10.w[0] + (uint32_t)(0))));
+                        vu_load_vf(5, EE_PTR((R10.w[0] + (uint32_t)(16))));
+                        vu_load_vf(6, EE_PTR((R10.w[0] + (uint32_t)(32))));
+                        vu_load_vf(7, EE_PTR((R10.w[0] + (uint32_t)(48))));
+                        ee_pextlh(&R8, &ee_zero, &R8);
+                        vu_load_vf(4, &R8);
+                        vu_upper(U_ITOF0, 12, 4, 4, 0, BC_NONE);
+                        vu_move(2, 4, 7);
+                        vu_upper(U_MUL, 12, 4, 4, 8, BC_Y);
+                        vu_move(1, 5, 7);
+                        vu_upper(U_MULA, 2, 0, 7, 8, BC_X);
+                        vu_upper(U_MADD, 2, 7, 8, 0, BC_W);
+                        R8.d[0] = ee_ldl(R8.d[0], (R12.w[0] + (uint32_t)(7)));
+                        R8.d[0] = ee_ldr(R8.d[0], (R12.w[0] + (uint32_t)(0)));
+                        R12.sd[0] = (int32_t)(R12.w[0] + (uint32_t)(6));
+                        vu_upper(U_MAX, 2, 7, 7, 0, BC_NONE);
+                        R9.d[0] = R8.d[0] & (uint64_t)(uint16_t)(65535);
+                        R8.d[0] = R8.d[0] >> 16;
+                        R9.sd[0] = (int32_t)(R9.w[0] << 6);
+                        R10.sd[0] = (int32_t)(op2.w[0] + R9.w[0]);
+                        vu_upper(U_MINI, 2, 7, 7, 8, BC_W);
+                        vu_move(1, 7, 6);
+                        op3.sd[0] = (int32_t)(op3.w[0] + (uint32_t)(-1));
+                        vu_store_vf(EE_PTR((R11.w[0] + (uint32_t)(0))), 4);
+                        vu_store_vf(EE_PTR((R11.w[0] + (uint32_t)(16))), 5);
+                        vu_store_vf(EE_PTR((R11.w[0] + (uint32_t)(32))), 6);
+                        vu_store_vf(EE_PTR((R11.w[0] + (uint32_t)(48))), 7);
+                        EE_SW((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fPad1))), op4.d[0]);
+                        ee_cond = (op3.sd[0] != 0);
+                        R11.sd[0] = (int32_t)(R11.w[0] + (uint32_t)(64));
+                        if (ee_cond) goto l_002D2B38;
+                    }
+#endif
                 
                     uspCnk += usMax * 3;
                     
@@ -2225,6 +2486,9 @@ CHUNK_HEAD* njCnkCsUvh(CHUNK_HEAD* pCnk)
     {
         for (; usStrip; usStrip--)
         {
+#ifdef TARGET_PC
+            pc_mesh_strip(uspCnk);
+#endif
             pS = NaCnkStrBufTop;
         
             usClip = *uspCnk & 0x8000; 
@@ -2430,6 +2694,9 @@ CHUNK_HEAD* njCnkCsUvn(CHUNK_HEAD* pCnk)
         
         for (; usStrip; usStrip--)  
         {
+#ifdef TARGET_PC
+            pc_mesh_strip(uspCnk);
+#endif
             usClip = *uspCnk & 0x8000;
             
             usNum = usMax = (usClip != 0) ? ~*uspCnk + 1 : *uspCnk; 
@@ -2466,6 +2733,7 @@ CHUNK_HEAD* njCnkCsUvn(CHUNK_HEAD* pCnk)
                 ulpP[4] = (SCE_GIF_SET_TAG(0, SCE_GS_TRUE, SCE_GS_TRUE, 0, SCE_GIF_PACKED, 3) | ulType) | usMax;
                 ulpP[5] = GIF_REGLIST(SCE_GS_ST, SCE_GS_RGBAQ, SCE_GS_XYZF2);
 
+#ifndef TARGET_PC
                 asm volatile
                 ("
                 .set noreorder
@@ -2530,6 +2798,10 @@ CHUNK_HEAD* njCnkCsUvn(CHUNK_HEAD* pCnk)
                 .set reorder
                 " : "r"(coflag) : "r"(uspCnk), "r"(usMax), "m"(pNaCnkVerBufTop) : "memory"
                 );
+#else
+                /* asm2c of the above, inlined (pc/src/ps2/vu.c vu_strip_clip) */
+                coflag = vu_strip_clip(uspCnk, usMax, pNaCnkVerBufTop);
+#endif
                     
                 if (coflag != 0)
                 {
@@ -2538,17 +2810,36 @@ CHUNK_HEAD* njCnkCsUvn(CHUNK_HEAD* pCnk)
                 else
                 {
                 label:
+#ifdef TARGET_PC
+                if (pc_native_3d()) 
+                {
+                    /* native 3D path: the GPU projects and clips (pc/glue/native_glue.c) */
+                    pc_native_strip(uspCnk, usMax, pNaCnkVerBufTop, (unsigned int)((ulType >> 47) & 0x7FF),
+                                    usColorCalc, vu1func_tag == SCE_VIF1_SET_MSCAL(700, 0), 0.003921569f);
+                    uspCnk += usMax * 3;
+                } 
+                else
+#endif
                 {
                     float zbuff[4] = { -Ps2_zbuff_b, 0.003921569f, -Ps2_zbuff_a, 65534.0f }; 
                     
+#ifndef TARGET_PC
                     asm volatile
                     ("
                     .set noreorder
                         lqc2 vf8, 0(%0)
                     .set reorder
                     " : : "r"(zbuff) : "v1", "memory"
-                    );  
+                    );
+#else
+                    { /* asm2c */
+                        ee_reg op0 = {{0}};
+                        op0.sd[0] = (int32_t)(uintptr_t)(zbuff);
+                        vu_load_vf(8, EE_PTR((op0.w[0] + (uint32_t)(0))));
+                    }
+#endif  
    
+#ifndef TARGET_PC
                     asm volatile
                     ("
                     .set noreorder
@@ -2624,6 +2915,65 @@ CHUNK_HEAD* njCnkCsUvn(CHUNK_HEAD* pCnk)
                     .set reorder
                     " : : "r"(pS), "r"(uspCnk), "m"(pNaCnkVerBufTop), "r"(usMax), "r"(usColorCalc) : "t0", "t1", "t2", "memory"
                     );
+#else
+                    { /* asm2c */
+                        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}}, R12 = {{0}};
+                        int ee_cond;
+                        const ee_reg ee_zero = {{0}};
+                        ee_reg op0 = {{0}};
+                        ee_reg op1 = {{0}};
+                        ee_reg op2 = {{0}};
+                        ee_reg op3 = {{0}};
+                        ee_reg op4 = {{0}};
+                        op0.sd[0] = (int32_t)(uintptr_t)(pS);
+                        op1.sd[0] = (int32_t)(uintptr_t)(uspCnk);
+                        op2.sd[0] = (int32_t)(uintptr_t)(pNaCnkVerBufTop);
+                        op3.sd[0] = (int32_t)(uintptr_t)(usMax);
+                        op4.sd[0] = (int32_t)(uintptr_t)(usColorCalc);
+                        op3.d[0] = op3.d[0] & (uint64_t)(uint16_t)(65535);
+                        R11.d[0] = op0.d[0];
+                        R12.d[0] = op1.d[0];
+                        R8.d[0] = ee_ldl(R8.d[0], (R12.w[0] + (uint32_t)(7)));
+                        R8.d[0] = ee_ldr(R8.d[0], (R12.w[0] + (uint32_t)(0)));
+                        R12.sd[0] = (int32_t)(R12.w[0] + (uint32_t)(6));
+                        R9.d[0] = R8.d[0] & (uint64_t)(uint16_t)(65535);
+                        R8.d[0] = R8.d[0] >> 16;
+                        R9.sd[0] = (int32_t)(R9.w[0] << 6);
+                        R10.sd[0] = (int32_t)(op2.w[0] + R9.w[0]);
+                    l_002D2B38:;
+                        vu_load_vf(4, EE_PTR((R10.w[0] + (uint32_t)(0))));
+                        vu_load_vf(5, EE_PTR((R10.w[0] + (uint32_t)(16))));
+                        vu_load_vf(6, EE_PTR((R10.w[0] + (uint32_t)(32))));
+                        vu_load_vf(7, EE_PTR((R10.w[0] + (uint32_t)(48))));
+                        ee_pextlh(&R8, &ee_zero, &R8);
+                        vu_load_vf(4, &R8);
+                        vu_upper(U_ITOF0, 12, 4, 4, 0, BC_NONE);
+                        vu_move(2, 4, 7);
+                        vu_upper(U_MUL, 12, 4, 4, 8, BC_Y);
+                        vu_move(1, 5, 7);
+                        vu_upper(U_MULA, 2, 0, 7, 8, BC_X);
+                        vu_upper(U_MADD, 2, 7, 8, 0, BC_W);
+                        R8.d[0] = ee_ldl(R8.d[0], (R12.w[0] + (uint32_t)(7)));
+                        R8.d[0] = ee_ldr(R8.d[0], (R12.w[0] + (uint32_t)(0)));
+                        R12.sd[0] = (int32_t)(R12.w[0] + (uint32_t)(6));
+                        vu_upper(U_MAX, 2, 7, 7, 0, BC_NONE);
+                        R9.d[0] = R8.d[0] & (uint64_t)(uint16_t)(65535);
+                        R8.d[0] = R8.d[0] >> 16;
+                        R9.sd[0] = (int32_t)(R9.w[0] << 6);
+                        R10.sd[0] = (int32_t)(op2.w[0] + R9.w[0]);
+                        vu_upper(U_MINI, 2, 7, 7, 8, BC_W);
+                        vu_move(1, 7, 6);
+                        op3.sd[0] = (int32_t)(op3.w[0] + (uint32_t)(-1));
+                        vu_store_vf(EE_PTR((R11.w[0] + (uint32_t)(0))), 4);
+                        vu_store_vf(EE_PTR((R11.w[0] + (uint32_t)(16))), 5);
+                        vu_store_vf(EE_PTR((R11.w[0] + (uint32_t)(32))), 6);
+                        vu_store_vf(EE_PTR((R11.w[0] + (uint32_t)(48))), 7);
+                        EE_SW((op0.w[0] + (uint32_t)(offsetof(VU1_STRIP_BUF, fPad1))), op4.d[0]);
+                        ee_cond = (op3.sd[0] != 0);
+                        R11.sd[0] = (int32_t)(R11.w[0] + (uint32_t)(64));
+                        if (ee_cond) goto l_002D2B38;
+                    }
+#endif
                 
                     uspCnk += usMax * 3;
                     
@@ -2657,6 +3007,9 @@ CHUNK_HEAD* njCnkCsUvn(CHUNK_HEAD* pCnk)
     {
         for (; usStrip; usStrip--)
         {
+#ifdef TARGET_PC
+            pc_mesh_strip(uspCnk);
+#endif
             pS = NaCnkStrBufTop;
         
             usClip = *uspCnk & 0x8000; 
@@ -2763,7 +3116,11 @@ void njCnkEasyMultiDrawObjectI(NJS_CNK_OBJECT* pObject)
             njScaleEx((NJS_VECTOR*)&pObject->scl[0]);
         }
     
+#ifndef TARGET_PC
         if ((ulFlags & 0x8)) 
+#else
+        if ((ulFlags & 0x8) && !pc_show_hidden(pObject))
+#endif
         {
             lDrawResult = 0;
         } 

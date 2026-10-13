@@ -26,7 +26,11 @@ void    njDrawPolygon( NJS_POLYGON_VTX *polygon, Int count, Int trans )
         *(unsigned int*)&bp[1][2] = polygon[i].col;
         *(unsigned int*)&bp[1][3] = polygon[i].col >> 25;
         
+#ifndef TARGET_PC
         bp[2][0] = 1728.0f + polygon[i].x;
+#else
+        bp[2][0] = 1728.0f + pc_overlay_x(polygon[i].x);   /* full-screen overlays: optional stretch */
+#endif
         bp[2][1] = 1808.0f + polygon[i].y;
         
         if (polygon[i].z) 

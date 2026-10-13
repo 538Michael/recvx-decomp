@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/system.h"
 #include "../../../ps2/veronica/prog/adv.h"
 #include "../../../ps2/veronica/prog/bup_00.h"
@@ -84,12 +87,21 @@ void bhChangeHWSetting()
     
     hws->vtx_total = bhCalcVtxBuffer(); 
 
+#ifdef TARGET_PC
+    njpmemp = &freemem[12255232 + PC_ARENA_EXTRA - hws->vtx_total];   /* main.c njUserInit */
+#else
     njpmemp = &freemem[12255232 - hws->vtx_total]; 
+#endif
     
     npPlusInit(); 
 
+#ifdef TARGET_PC
+    vwbmemp = &freemem[12517376 + PC_ARENA_EXTRA - hws->vtx_total]; 
+    vebmemp = &freemem[12845056 + PC_ARENA_EXTRA - hws->vtx_total]; 
+#else
     vwbmemp = &freemem[12517376 - hws->vtx_total]; 
     vebmemp = &freemem[12845056 - hws->vtx_total]; 
+#endif
 
     if ((sys->gm_flg & 0x1)) 
     { 
@@ -209,6 +221,9 @@ void bhInitRoomChangeSystem()
             }
         }
     } 
+#ifdef TARGET_PC
+    pc_et_lp_clear();
+#endif
     
     for (i = 0; i < 1300; i++)
     {
@@ -332,7 +347,12 @@ void bhSysCallWarning()
     
     if (Adv_FirstWarningMessage() != 0)
     { 
+#ifndef TARGET_PC
         sys->tk_flg = 0x300004; 
+#else
+        /* option: past the Capcom logo and intro movie (Adv_CapcomLogo) straight to the title */
+        sys->tk_flg = pc_skip_intro() ? 0x300008 : 0x300004; 
+#endif
     }
 } 
 
@@ -389,6 +409,13 @@ void bhSysCallFirstmovie()
         sys->ss_flg &= ~0x200;
         sys->tk_flg = 0x300010;
         break;
+#ifdef TARGET_PC
+    case 8:   /* co-op lobby: the chosen save, as LOAD GAME leaves it (TypewriterExit) */
+        pc_lobby_load_save();
+        sys->ss_flg |= 0x200;
+        sys->tk_flg = 0x300010;
+        break;
+#endif
     }
 }
 
@@ -947,7 +974,12 @@ void bhSysCallDoordemo()
     switch (ddp->mode0)
     {
     case 0:
+#ifndef TARGET_PC
         if (((ddp->flg & 0x80000000)) || (sys->door.dor_tp == 255))
+#else
+        /* option: the game's own no-animation path (load screen) for every transition */
+        if (((ddp->flg & 0x80000000)) || (sys->door.dor_tp == 255) || pc_skip_door_demo())
+#endif
         {
             ddp->mode0 = 10;
             break;
@@ -1238,7 +1270,11 @@ void bhSysCallOption()
     { 
         if (sys->opt_md0 != 0) 
         {
-            asm("nop"); 
+#ifndef TARGET_PC
+            asm("nop");
+#else
+            { /* asm2c */ }
+#endif 
         } 
         else if (!(sys->cb_flg & 0x2))
         { 
@@ -1630,6 +1666,10 @@ void bhSysCallMonitor()
                         
                         sys->memp = (unsigned char*)ALIGN_UP((int)sys->memp, 64); 
                         sys->rdtp = (unsigned char*)ALIGN_DOWN((int)sys->endp - sz, 64); 
+#ifdef TARGET_PC
+                        if (sys->rdtp < sys->memp)   /* the PS2 read it over the persistent data below */
+                            host_fatal("%s: packed room file (%d KB) does not fit the room arena (%d KB free)", sys->mes, sz >> 10, (int)(sys->endp - sys->memp) >> 10);
+#endif
                         
                         RequestReadIsoFile(sys->mes, sys->rdtp);
                         
@@ -1689,6 +1729,13 @@ void bhSysCallMonitor()
                     FlushCache(0);
                     
                     sys->rdtsz = Expand((char*)sys->rdtp, sys->memp);
+#ifdef TARGET_PC
+                    /* the expansion grows towards the packed copy at the top (the PS2's RM_9350 overlaps
+                       it harmlessly); past endp it has overwritten the vertex buffers */
+                    if ((int)sys->rdtsz > sys->endp - sys->memp)
+                        host_fatal("RM_%d%02d%d: expanded room file (%d KB) exceeds the room arena (%d KB free)", sys->stg_no, sys->rom_no, sys->rcase, (int)sys->rdtsz >> 10, (int)(sys->endp - sys->memp) >> 10);
+                    host_log("room: RM_%d%02d%d %d KB expanded, %d KB of the room arena left\n", sys->stg_no, sys->rom_no, sys->rcase, (int)sys->rdtsz >> 10, (int)(sys->endp - sys->memp - (int)sys->rdtsz) >> 10);
+#endif
                     
                     sys->rdtp = sys->memp;
                     
@@ -2279,6 +2326,9 @@ void bhSysCallScreenSaver()
     NJS_POINT2 pos; 
     int col; 
     
+#ifdef TARGET_PC
+    if (sys->ssv_md0 <= 2 && pc_input_active()) bhInitScreenSaver();   /* input the pad check below misses (tps_glue.c) */
+#endif
     switch (sys->ssv_md0) 
     {                        
     case 0:

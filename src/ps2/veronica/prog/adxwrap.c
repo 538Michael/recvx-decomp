@@ -254,6 +254,18 @@ int OpenAfsIsoFile(char* FileName)
         
         chg_FileName[i] = 0;
         
+#ifdef TARGET_PC
+        /* a room file in the mods folder replaces the disc's, or adds a room the table lacks */
+        if ((AdxFInfo[SlotNo].Handle = pc_mod_open(chg_FileName)) != NULL) 
+        {
+            AdxFInfo[SlotNo].Mode = -1;
+            
+            AdxFInfo[SlotNo].Flag = 1;
+            
+            return SlotNo;
+        }
+        
+#endif
         for (i = 0; i < rdx_image_data_max; i++) 
         {
             if (strcmp(chg_FileName, rdx_files[i]) == 0) 
@@ -593,7 +605,11 @@ void ContinueAdx(unsigned int SlotNo)
 // 100% matching!
 int GetAdxStatus(unsigned int SlotNo)
 {
+#ifndef TARGET_PC
     ADXT_GetStat(AdxTInfo[SlotNo].Handle);
+#else
+    return ADXT_GetStat(AdxTInfo[SlotNo].Handle);   /* retail tail call: v0 = ADXT_GetStat() */
+#endif
 }
 
 // 100% matching!

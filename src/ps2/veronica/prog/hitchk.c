@@ -637,6 +637,47 @@ void bhCheckWall(BH_PWORK* pw)
     }
 }
 
+#ifdef TARGET_PC
+/* Ground height on the type-6 slope walls under pos (x/z inside the box, pos y within the box's
+   height band extended down by the actor's height ah, as bhCheckWall's case 6 tests, and up by it:
+   walking down onto the next box, last frame's y lies above that box's top). id: 0 rising
+   +x, 1 rising -z, 2 rising +z, 3 rising -x, from py to py + h (h 0 = rom->h). Several slopes:
+   the surface nearest to pos y. Unlike bhCheckWall's case 6 (enemies), which projects the actor
+   onto the slope's line and so also moves it along x/z, only y changes: continuous terrain made of
+   adjacent slope boxes is walked at the boxes' heights. Sets pos y and the actor's floor number
+   (from the height, as bhSetFloorNum); 0 = on no slope, nothing changed. */
+int pc_slope_ground(struct BH_PWORK* pw, void* pos, float ah)
+{
+    NJS_POINT3* p = (NJS_POINT3*)pos;
+    ATR_WORK* hp;
+    int i, fno, n = rom->wal_n + sys->mwal_n, on = 0;
+    float u, v, h, s, y = 0;
+
+    for (i = 0; i < n; i++)
+    {
+        hp = i < rom->wal_n ? &rom->walp[i] : &sys->mwalp[i - rom->wal_n];
+        if (!(hp->flg & 0x1) || hp->type != 6 || hp->id > 3) continue;
+        h = hp->h ? hp->h : rom->h;
+        u = p->x - hp->px;
+        v = p->z - hp->pz;
+        if (u < 0 || u >= hp->w || v < 0 || v >= hp->d || p->y + ah < hp->py || p->y - fabsf(ah) > hp->py + h) continue;
+        s = hp->id == 0 ? u / hp->w : hp->id == 1 ? 1.0f - v / hp->d : hp->id == 2 ? v / hp->d : 1.0f - u / hp->w;
+        s = hp->py + s * h;
+        if (!on || fabsf(s - p->y) < fabsf(y - p->y)) y = s;
+        on = 1;
+    }
+    if (!on) return 0;
+    p->y = y;
+    fno = bhCheckFloorNum(y);
+    if (fno != pw->flr_no)
+    {
+        pw->flr_nob = pw->flr_no;
+        pw->flr_no = fno;
+    }
+    return 1;
+}
+#endif
+
 // 100% matching!
 int bhCheckWallEx(BH_PWORK* pw, NJS_POINT3* npos, NJS_POINT3* opos, float par, float pah)
 {
@@ -1252,6 +1293,14 @@ int bhCheckWallEx(BH_PWORK* pw, NJS_POINT3* npos, NJS_POINT3* opos, float par, f
         pw->stflg |= 0x1;
     }
     
+#ifdef TARGET_PC
+    /* the player's (and these actors') wall check had no slope case: on the floor level they
+       stayed. In "budget": "pc" rooms they stand on the slope instead (pc_slope_ground). */
+    if (((pw->flg & 0x100)) && ((rom->flg & PC_ROOM_SLOPES)) && (pc_slope_ground(pw, npos, pah) != 0))
+    {
+    }
+    else
+#endif
     if ((hit == 0) && ((pw->flg & 0x100)))
     {
         npos->y = rom->grand[pw->flr_no + 2]; 

@@ -46,7 +46,20 @@ void bhMainSequence()
         }
         
         bhControlEnemy();
+#ifdef TARGET_PC
+        if (coop_on)
+        {
+            coop_fx_player();   /* the effects our player's step starts go to the partner (until coop_control_remote) */
+        }
+        actor_hands_back();   /* "You appear as": the head and hands the game computed, not the model's */
+#endif
         bhControlPlayer();
+#ifdef TARGET_PC
+        if (coop_on || appear_on)   /* appear_on: "You appear as" without co-op */
+        {
+            coop_control_remote();
+        }
+#endif
         bhControlEffect();
         bhControlObjItm();
             
@@ -55,8 +68,20 @@ void bhMainSequence()
             bhSetPlEyeCamera();
         }
         
+#ifdef TARGET_PC
+        if (tps_on)
+        {
+            tps_camera();
+        }
+#endif
         bhControlCamera();
         bhControlLight();
+#ifdef TARGET_PC
+        if (tps_on)
+        {
+            tps_atmos();
+        }
+#endif
             
         if (i == (sys->loop_ct - 1)) 
         {
@@ -110,7 +135,17 @@ void bhMainSequence()
             {
                 bhDrawScreenFade();
             }
+#ifdef TARGET_PC
+            trade_draw();   /* co-op trade screen / request line (pc/glue/trade_glue.c) */
+#endif
         }
+        
+#ifdef TARGET_PC
+        if (tps_on)
+        {
+            tps_after_draw();
+        }
+#endif
         
         if (((sys->st_flg & 0x200000)) && (!(sys->cb_flg & 0x1)))
         {
@@ -294,6 +329,12 @@ void bhMainSequence()
         {
             bhCheckCut(1);
         }
+#ifdef TARGET_PC
+        if (tps_on)
+        {
+            tps_after_cut();
+        }
+#endif
         
         if (sys->loop_ct > 1) 
         {
@@ -361,13 +402,24 @@ void bhAllDrawModel()
         if (!(plp->mdflg & 1)) {
             if (!(plp->mdflg & 0x20)) {
                 if (bhCheckClipModel(plp) == 0) {
+#ifdef TARGET_PC
+                    if (!actor_on || !actor_put_player())   /* "You appear as" another model */
+#endif
                     bhPutModel(plp);
                 }
             } else {
+#ifdef TARGET_PC
+                if (!actor_on || !actor_put_player())
+#endif
                 bhPutModel(plp);
             }
         }
     }
+#ifdef TARGET_PC
+    if (coop_on) {
+        coop_draw_remote();
+    }
+#endif
     if ((rom->mdl.texP != 0) && !(sys->error & 2)) {
         njSetTexture(rom->mdl.texP);
     }

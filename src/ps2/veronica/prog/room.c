@@ -110,6 +110,10 @@ void bhSetRoom()
             }
         }
     } 
+#ifdef TARGET_PC
+    pc_et_lp_clear();
+    spawn_room_setup();
+#endif
     
     ep = rom->enep;
     
@@ -329,7 +333,15 @@ void bhSetRoom()
             sys->ef_pbkb[efp->id] = *(unsigned char*)(sys->ef_tlist.textures[sys->ef_tn[efp->id]].texaddr + 4);
         }
     }
-    
+#ifdef TARGET_PC
+    /* the lists are read in order without skipping: a mod room whose table holds more or fewer
+       (e.g. a list per object of a repeated id) gives every later effect its neighbour's
+       texture and palette (pc/tools/assets.py dependencies checks the same rule) */
+    if (nbt != 0)
+        printf("room: RM_%d%02d0 texture table has %d list(s) %s than the room reads: effect textures are shifted\n", sys->stg_no,
+               sys->rom_no, (int)nbt < 0 ? -(int)nbt : (int)nbt, (int)nbt < 0 ? "fewer" : "more");
+#endif
+
     sys->memp = reladr;
 }
 
@@ -514,6 +526,17 @@ void bhFinishRoom()
         bhSetFloorNum(plp);
         
         plp->py = plp->gpy = rom->grand[plp->flr_no + 2];
+#ifdef TARGET_PC
+        if ((rom->flg & PC_ROOM_SLOPES))   /* an entry on a slope: on its surface (hitchk.c pc_slope_ground) */
+        {
+            NJS_POINT3 ps = { plp->px, rom->posp[sys->pos_no].py, plp->pz };
+
+            if (pc_slope_ground(plp, &ps, plp->ah) != 0)
+            {
+                plp->py = plp->gpy = ps.y;
+            }
+        }
+#endif
         
         ((EXP_WORK*)plp->exp0)->arp = 0;
         ((EXP_WORK*)plp->exp0)->arn = 0;
@@ -551,9 +574,25 @@ void bhFinishRoom()
     sys->pos_nob = sys->pos_no;
     
     sys->rcase_b = sys->rcase;
-    
+
     sys->ts_flg |= 0x180;
+
+#ifdef TARGET_PC
+    enemy_room_finished();   /* enemy options: rearranged placements, randomizer (pc/glue/enemyopt_glue.c) */
+#endif
 }
+
+#ifdef TARGET_PC
+/* sys->et_lp[100][16][16] is indexed [type][model version][textured sub-model]: zombie model
+   versions 16..42 ran into the next types' rows (21 = Gulp Worm model 5, 32..42 = Black Widow
+   0..10). Versions 16 and up get rows of their own here (no retail room needs the alias). */
+static NJS_TEXLIST* pc_et_lp_hi[100][48][16];
+NJS_TEXLIST** pc_et_lp(int id, int ver) { return ver >= 16 && ver < 64 ? pc_et_lp_hi[id][ver - 16] : sys->et_lp[id][ver]; }
+void pc_et_lp_clear(void) { memset(pc_et_lp_hi, 0, sizeof(pc_et_lp_hi)); }
+#define ET_LP(id, ver) pc_et_lp(id, ver)
+#else
+#define ET_LP(id, ver) sys->et_lp[id][ver]
+#endif
 
 // 100% matching!
 void bhSetEneMdl(unsigned char* datp, ETTY_WORK* ep, int mdlno, int eno) 
@@ -604,17 +643,17 @@ void bhSetEneMdl(unsigned char* datp, ETTY_WORK* ep, int mdlno, int eno)
                 {
                     mdlver++;
                     
-                    if (sys->et_lp[ep->id][mdlno][mdlver] == 0) 
+                    if (ET_LP(ep->id, mdlno)[mdlver] == 0) 
                     {
                         epp->mlwP->flg |= 0x200;
                         
-                        sys->et_lp[ep->id][mdlno][mdlver] = epp->mlwP->texP;
+                        ET_LP(ep->id, mdlno)[mdlver] = epp->mlwP->texP;
                     } 
                     else
                     {
                         epp->mlwP->flg &= ~0x200;
                         
-                        epp->mlwP->texP = sys->et_lp[ep->id][mdlno][mdlver];
+                        epp->mlwP->texP = ET_LP(ep->id, mdlno)[mdlver];
                     }
                 } 
                 else
@@ -623,7 +662,7 @@ void bhSetEneMdl(unsigned char* datp, ETTY_WORK* ep, int mdlno, int eno)
                     
                     if (mdlver >= 0) 
                     {
-                        epp->mlwP->texP = sys->et_lp[ep->id][mdlno][mdlver];
+                        epp->mlwP->texP = ET_LP(ep->id, mdlno)[mdlver];
                     }
                 }
                 

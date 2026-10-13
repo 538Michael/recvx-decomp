@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_dummy.h"
 #include "../../../ps2/veronica/prog/ps2_loadtim2.h"
 #include "../../../ps2/veronica/prog/ps2_NaDraw2D.h"
@@ -8,6 +11,9 @@
 #include "../../../ps2/veronica/prog/ps2_texture.h"
 #include "../../../ps2/veronica/prog/sdfunc.h"
 #include "../../../ps2/veronica/prog/main.h"
+#ifdef TARGET_PC
+static void pc_native_packet_test(unsigned int h, unsigned long test);
+#endif
 
 // the three vars below were originally defined as unsigned int in ps2_NaFog.c, and redeclared as unsigned long here
 extern unsigned long ulNaFogR;
@@ -32,11 +38,21 @@ float cmmat[2][16];
 NJS_MATRIX lcmat[12];
 float mbuf[128][16];
 unsigned int palbuf[4096];
+#ifdef TARGET_PC
+unsigned char Ps2_tex_mem[PC_TEX_HEAP_SIZE];   /* PS2: 10 MB (pc_prelude.h) */
+#else
 unsigned char Ps2_tex_mem[10485760];
+#endif
 PS2_OT* Ps2_OT[4096][2] __attribute__((aligned(128)));
+#ifdef TARGET_PC
+unsigned char Ps2_PBUFF[PC_PBUFF_SIZE] __attribute__((aligned(64)));   /* PS2: 1835008 (pc_prelude.h) */
+void* Ps2_PP;
+PS2_OT Ps2_ot_list[PC_OT_ENTRIES];                                      /* PS2: 8192 */
+#else
 unsigned char Ps2_PBUFF[1835008] __attribute__((aligned(64)));
 void* Ps2_PP;
 PS2_OT Ps2_ot_list[8192];
+#endif
 unsigned int Ps2_ot_list_no;
 PS2_TP_TAG Ps2_tp_tag[64] __attribute__((aligned(64)));
 PS2_TP_CACHE ps2_tp_cache[64];
@@ -261,7 +277,11 @@ void PS2_swap()
     *p++ = SCE_GS_SET_PABE(0);
     *p++ = SCE_GS_PABE;
 
+#ifndef TARGET_PC
     if (MovieInfo.ExecMovieSystemFlag != 0)
+#else
+    if (MovieInfo.ExecMovieSystemFlag != 0 || !pc_frame_blend())   /* option: plain copy, no trail */
+#endif
     {
         *p++ = SCE_GS_SET_ALPHA_2(SCE_GS_ALPHA_CS, SCE_GS_ALPHA_CD, SCE_GS_ALPHA_FIX, SCE_GS_ALPHA_CD, 128);
     }
@@ -348,6 +368,30 @@ void Ps2AddPrim(unsigned long prim, void* dp, unsigned int num, unsigned int cli
         }
     } 
     
+#ifdef TARGET_PC
+    if (pc_native_3d()) 
+    {
+        /* native path (pc/glue/native_glue.c): triangles as native triangles, points,
+           lines and sprites as the register values the GS would get */
+        float key;
+        unsigned int t = (unsigned int)((prim >> 47) & 7);
+        unsigned int h = t >= 3 && t <= 5
+            ? pc_native_prim((unsigned int)((prim >> 47) & 0x7FF), (const unsigned int*)dp, (int)num, (int)clip_3d_on,
+                             (prim & 0x20000000000000) != 0, &key)
+            : pc_native_prim_raw((unsigned int)((prim >> 47) & 0x7FF), (const unsigned int*)dp, (int)num, (int)clip_3d_on, &key);
+        pc_native_packet_test(h, SCE_GS_SET_TEST(1, 6, 0, 0, 0, 0, 1, 2));
+        if ((prim & 0x20000000000000)) 
+        {
+            Ps2AddOT((void*)WORKBASE, 1, key, prim);
+        }
+        else
+        {
+            SyncPath();
+            loadImage((void*)0xF0000000);
+        }
+        return;
+    }
+#endif
     p = (unsigned long*)WORKBASE; 
     
     D2_SyncTag(); 
@@ -546,6 +590,7 @@ void Ps2AddPrim3D(unsigned long prim, void* dp, unsigned int num)
     *p++ = (SCE_GIF_SET_TAG(0, 1, SCE_GIF_REGLIST, 0, 0, 3) | prim) | num;
     *p++ = GIF_REGLIST(SCE_GS_ST, SCE_GS_RGBAQ, SCE_GS_XYZF2);
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -637,6 +682,79 @@ void Ps2AddPrim3D(unsigned long prim, void* dp, unsigned int num)
     .set reorder
     " : : "r"(clip_vec), "r"(near_far_vec), "r"(zclip_ab_vec), "r"(zbuff_ab_vec), "r"(dp), "r"(p), "r"(num) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R1 = {{0}}, R2 = {{0}}, R3 = {{0}}, R4 = {{0}};
+        int ee_cond;
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        ee_reg op4 = {{0}};
+        ee_reg op5 = {{0}};
+        ee_reg op6 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(clip_vec);
+        op1.sd[0] = (int32_t)(uintptr_t)(near_far_vec);
+        op2.sd[0] = (int32_t)(uintptr_t)(zclip_ab_vec);
+        op3.sd[0] = (int32_t)(uintptr_t)(zbuff_ab_vec);
+        op4.sd[0] = (int32_t)(uintptr_t)(dp);
+        op5.sd[0] = (int32_t)(uintptr_t)(p);
+        op6.sd[0] = (int32_t)(uintptr_t)(num);
+        vu_load_vf(10, EE_PTR((op3.w[0] + (uint32_t)(0))));
+        vu_load_vf(13, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(12, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(11, EE_PTR((op2.w[0] + (uint32_t)(0))));
+        vu_upper(U_ITOF0, 1, 10, 10, 0, BC_NONE);
+        vu_upper(U_SUB, 15, 9, 9, 9, BC_NONE);
+        R1.sd[0] = (int32_t)((uint32_t)(((0x3FFFF >> 16))) << 16);
+        R2.d[0] = ee_zero.d[0] | (uint64_t)(uint16_t)(32768);
+        R4.d[0] = R1.d[0] | (uint64_t)(uint16_t)(((0x3FFFF & 0xFFFF)));
+        vu_ctc2(18, ee_zero.w[0]);
+        vu_ctc2(2, R2.w[0]);
+        g_vu0.vi[4] = (uint16_t)(g_vu0.vi[0] + (0));
+        R2.sd[0] = (int32_t)(op6.w[0] + ee_zero.w[0]);
+        vu_div(0, 3, 10, 3);
+    l_002CBEBC:;
+        vu_load_vf(4, EE_PTR((op4.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op4.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op4.w[0] + (uint32_t)(32))));
+        vu_mtir(3, 4, 3);
+        vu_upper(U_ADDA, 2, 0, 6, 11, BC_NONE);
+        vu_upper(U_MADD, 2, 7, 6, 11, BC_X);
+        vu_upper(U_SUB, 12, 7, 6, 13, BC_NONE);
+        vu_clipw(7, 13);
+        vu_upper(U_ADDA, 2, 0, 0, 10, BC_NONE);
+        vu_upper(U_MADD, 2, 6, 4, 10, BC_X);
+        vu_upper(U_MAX, 2, 6, 6, 0, BC_NONE);
+        vu_upper(U_MINI, 2, 6, 6, 12, BC_Y);
+        vu_upper(U_ADD, 1, 9, 9, 6, BC_Z);
+        vu_upper(U_FTOI4, 15, 6, 6, 0, BC_NONE);
+        vu_mtir(5, 6, 3);
+        R3.sd[0] = (int32_t)(vu_cfc2(18));
+        R3.d[0] = R3.d[0] & R4.d[0];
+        ee_cond = (R3.sd[0] == 0);
+        if (ee_cond) goto l_002CBF0C;
+        g_vu0.vi[3] = (uint16_t)(g_vu0.vi[3] | g_vu0.vi[2]);
+    l_002CBF0C:;
+        g_vu0.vi[5] = (uint16_t)(g_vu0.vi[5] | g_vu0.vi[3]);
+        g_vu0.vi[4] = (uint16_t)(g_vu0.vi[4] & g_vu0.vi[5]);
+        vu_mfir(1, 6, 5);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(0))), 4);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(16))), 5);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(32))), 6);
+        R2.sd[0] = (int32_t)(R2.w[0] + (uint32_t)(-1));
+        op5.sd[0] = (int32_t)(op5.w[0] + (uint32_t)(48));
+        ee_cond = (R2.sd[0] != 0);
+        op4.sd[0] = (int32_t)(op4.w[0] + (uint32_t)(48));
+        if (ee_cond) goto l_002CBEBC;
+        R3.sd[0] = (int32_t)(vu_cfc2(4));
+        ee_cond = (R2.sd[0] != 0);
+        if (ee_cond) goto l_002CBF9C;
+        vu_upper(U_MUL, 1, 4, 9, 0, BC_Q);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(0))), 4);
+    }
+#endif
 
     if ((prim & 0x20000000000000)) 
     {
@@ -717,6 +835,7 @@ void Ps2AddPrim3DEx(unsigned long prim, void* dp, unsigned int num)
     *p++ = (SCE_GIF_SET_TAG(0, 1, SCE_GIF_REGLIST, 0, 0, 3) | prim) | num;
     *p++ = GIF_REGLIST(SCE_GS_ST, SCE_GS_RGBAQ, SCE_GS_XYZF2);
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -810,6 +929,80 @@ void Ps2AddPrim3DEx(unsigned long prim, void* dp, unsigned int num)
     .set reorder
     " : : "r"(clip_vec), "r"(near_far_vec), "r"(zclip_ab_vec), "r"(zbuff_ab_vec), "r"(dp), "r"(p), "r"(num) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R1 = {{0}}, R2 = {{0}}, R3 = {{0}}, R4 = {{0}};
+        int ee_cond;
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        ee_reg op4 = {{0}};
+        ee_reg op5 = {{0}};
+        ee_reg op6 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(clip_vec);
+        op1.sd[0] = (int32_t)(uintptr_t)(near_far_vec);
+        op2.sd[0] = (int32_t)(uintptr_t)(zclip_ab_vec);
+        op3.sd[0] = (int32_t)(uintptr_t)(zbuff_ab_vec);
+        op4.sd[0] = (int32_t)(uintptr_t)(dp);
+        op5.sd[0] = (int32_t)(uintptr_t)(p);
+        op6.sd[0] = (int32_t)(uintptr_t)(num);
+        vu_load_vf(10, EE_PTR((op3.w[0] + (uint32_t)(0))));
+        vu_load_vf(13, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(12, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(11, EE_PTR((op2.w[0] + (uint32_t)(0))));
+        vu_upper(U_ITOF0, 1, 10, 10, 0, BC_NONE);
+        vu_upper(U_SUB, 15, 9, 9, 9, BC_NONE);
+        R1.sd[0] = (int32_t)((uint32_t)(((0x3FFFF >> 16))) << 16);
+        R2.d[0] = ee_zero.d[0] | (uint64_t)(uint16_t)(32768);
+        R4.d[0] = R1.d[0] | (uint64_t)(uint16_t)(((0x3FFFF & 0xFFFF)));
+        vu_ctc2(18, ee_zero.w[0]);
+        vu_ctc2(2, R2.w[0]);
+        g_vu0.vi[4] = (uint16_t)(g_vu0.vi[0] + (0));
+        R2.sd[0] = (int32_t)(op6.w[0] + ee_zero.w[0]);
+        vu_div(0, 3, 10, 3);
+    l_002CC1CC:;
+        vu_load_vf(4, EE_PTR((op4.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op4.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op4.w[0] + (uint32_t)(32))));
+        vu_mtir(3, 4, 3);
+        vu_upper(U_ADDA, 2, 0, 6, 11, BC_NONE);
+        vu_upper(U_MADD, 2, 7, 6, 11, BC_X);
+        vu_upper(U_SUB, 12, 7, 6, 13, BC_NONE);
+        vu_clipw(7, 13);
+        vu_upper(U_ADDA, 2, 0, 0, 10, BC_NONE);
+        vu_upper(U_MADD, 2, 6, 4, 10, BC_X);
+        vu_upper(U_MAX, 2, 6, 6, 0, BC_NONE);
+        vu_upper(U_FTOI0, 15, 5, 5, 0, BC_NONE);
+        vu_upper(U_MINI, 2, 6, 6, 12, BC_Y);
+        vu_upper(U_ADD, 1, 9, 9, 6, BC_Z);
+        vu_upper(U_FTOI4, 15, 6, 6, 0, BC_NONE);
+        vu_mtir(5, 6, 3);
+        R3.sd[0] = (int32_t)(vu_cfc2(18));
+        R3.d[0] = R3.d[0] & R4.d[0];
+        ee_cond = (R3.sd[0] == 0);
+        if (ee_cond) goto l_002CC220;
+        g_vu0.vi[3] = (uint16_t)(g_vu0.vi[3] | g_vu0.vi[2]);
+    l_002CC220:;
+        g_vu0.vi[5] = (uint16_t)(g_vu0.vi[5] | g_vu0.vi[3]);
+        g_vu0.vi[4] = (uint16_t)(g_vu0.vi[4] & g_vu0.vi[5]);
+        vu_mfir(1, 6, 5);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(0))), 4);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(16))), 5);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(32))), 6);
+        R2.sd[0] = (int32_t)(R2.w[0] + (uint32_t)(-1));
+        op5.sd[0] = (int32_t)(op5.w[0] + (uint32_t)(48));
+        ee_cond = (R2.sd[0] != 0);
+        op4.sd[0] = (int32_t)(op4.w[0] + (uint32_t)(48));
+        if (ee_cond) goto l_002CC1CC;
+        R3.sd[0] = (int32_t)(vu_cfc2(4));
+        ee_cond = (R2.sd[0] != 0);
+        if (ee_cond) goto l_002CC2B0;
+        vu_upper(U_MUL, 1, 4, 9, 0, BC_Q);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(0))), 4);
+    }
+#endif
 
     if ((prim & 0x20000000000000)) 
     {
@@ -825,6 +1018,111 @@ void Ps2AddPrim3DEx(unsigned long prim, void* dp, unsigned int num)
 l_002CC2B0:
     return;
 }
+
+#ifdef TARGET_PC
+/* Rendering rework: Ps2AddPrim3DEx (mode 0), Ps2AddPrim3DEx1P (1) and Ps2AddPrim3DExI (2) for
+   the strips of ps2_Vu1Strip.c in the native 3D path. Same texture handling, TEST and
+   ordering-table/immediate split (and, for ExI, the per-triangle sorting with the ViewType
+   keys) as the originals, but the strip goes to pc/glue/native_glue.c and the GS packet
+   carries, in place of the vertices, a write of the deferred strip's number to
+   NATIVE_MARKER_REG (laid out as one vertex of three qwords, so Ps2AddOT copies it like an
+   original entry). */
+static void pc_native_packet_test(unsigned int h, unsigned long test)
+{
+    unsigned long* p = (unsigned long*)WORKBASE;
+    D2_SyncTag();
+    *p++ = 6 | 0x70000000;
+    *p++ = 0;
+    *p++ = SCE_GIF_SET_TAG(1, 0, SCE_GIF_PACKED, 0, 0, 1);
+    *p++ = SCE_GIF_PACKED_AD;
+    *p++ = Ps2_gs_save.TEST = test;
+    *p++ = SCE_GS_TEST_1;
+    *p++ = SCE_GIF_SET_TAG(3, 1, 0, 0, SCE_GIF_PACKED, 1);
+    *p++ = SCE_GIF_PACKED_AD;
+    *p++ = h;           *p++ = NATIVE_MARKER_REG;
+    *p++ = 0xFFFFFFFF;  *p++ = NATIVE_MARKER_REG;   /* padding (ignored) */
+    *p++ = 0xFFFFFFFF;  *p++ = NATIVE_MARKER_REG;
+}
+
+static void pc_native_packet(unsigned int h)
+{
+    pc_native_packet_test(h, SCE_GS_SET_TEST_1(1, SCE_GS_ALPHA_GREATER, 0, SCE_GS_AFAIL_KEEP, 0, 0, 1, SCE_GS_DEPTH_GEQUAL));
+}
+
+/* GS depth as the packet holds it (FTOI4 of the clamped depth), read back like ITOF4 */
+static float pc_gs_depth(const VU1_PRIM_BUF* v)
+{
+    float z = -Ps2_zbuff_b * v->fQ - Ps2_zbuff_a;
+    z = z < 0.0f ? 0.0f : z > 65534.0f ? 65534.0f : z;
+    return (float)(int)(z * 16.0f) / 16.0f;
+}
+
+void Ps2AddPrim3DExNative(unsigned long prim, void* dp, unsigned int num, int mode)
+{
+    TIM2_PICTUREHEADER_EX* timp;
+    float zavg;
+    int ot;
+    if ((prim & 0x8000000000000)) 
+    {
+        if (Ps2_now_tex == NULL) 
+        {
+            return;
+        }
+        if ((prim & 0x20000000000000)) 
+        {
+            if (Ps2_use_pt_flag != 0)
+            {
+                prim &= ~SCE_GIF_SET_TAG(0, 0, 0, SCE_GS_SET_PRIM(0, 0, 0, 0, 1, 0, 0, 0, 0), 0, 0);
+            }
+        }
+        if (!(prim & 0x20000000000000)) 
+        {
+            timp = (TIM2_PICTUREHEADER_EX*)Ps2_now_tex->texinfo.texsurface.pSurface;
+            if (timp->TpFlag != 0) 
+            {
+                Ps2_tex_load_tp_cancel = 1;
+                Ps2TexLoad(Ps2_now_tex);
+                Ps2_tex_load_tp_cancel = 0;
+            }
+        }
+        else if (mode == 1 && Ps2_albinoid_flag != 0) 
+        {
+            Ps2_tex_load_tp_cancel = 1;
+            Ps2TexLoad(Ps2_now_tex);
+            Ps2_tex_load_tp_cancel = 0;
+        }
+    } 
+    ot = (prim & 0x20000000000000) && (mode != 1 || Ps2_albinoid_flag == 0);
+    if (mode == 2 && ot && ViewType < 3 && num > 3 && (prim & 0x3800000000000) == 0x2000000000000 && ((num * 3) - 6) < 167)
+    {
+        /* ExI: every triangle sorted on its own */
+        const VU1_PRIM_BUF* v = (const VU1_PRIM_BUF*)dp;
+        prim &= ~SCE_GIF_SET_TAG(0, 0, 0, SCE_GS_SET_PRIM(7, 0, 0, 0, 0, 0, 0, 0, 0), 0, 0);
+        prim |= SCE_GIF_SET_TAG(0, 0, 0, SCE_GS_SET_PRIM(SCE_GS_PRIM_TRI, 0, 0, 0, 0, 0, 0, 0, 0), 0, 0);
+        for (unsigned int j = 0; j + 2 < num; j++) 
+        {
+            float z0 = pc_gs_depth(&v[j]), z1 = pc_gs_depth(&v[j + 1]), z2 = pc_gs_depth(&v[j + 2]), key;
+            unsigned int h = pc_native_prim3d((unsigned int)((prim >> 47) & 0x7FF), &v[j], 3, 1, &zavg);
+            if (ViewType == 0) key = MIN(MIN(z0, z1), z2);
+            else if (ViewType == 1) key = 0.33333334f * ((float)(int)(v[j].fX * 16.0f) / 16.0f + (float)(int)(v[j].fY * 16.0f) / 16.0f + z0);
+            else key = MAX(MAX(z0, z1), z2);
+            pc_native_packet(h);
+            Ps2AddOT((void*)0x70000000, 1, key, prim);
+        }
+        return;
+    }
+    pc_native_packet(pc_native_prim3d((unsigned int)((prim >> 47) & 0x7FF), (const VU1_PRIM_BUF*)dp, (int)num, ot, &zavg));
+    if (ot) 
+    {
+        Ps2AddOT((void*)0x70000000, 1, zavg, prim);
+    }
+    else 
+    {
+        SyncPath();
+        loadImage((void*)0xF0000000); 
+    }
+}
+#endif
 
 // 100% matching!
 void Ps2AddPrim3DEx1P(unsigned long prim, void* dp, unsigned int num)
@@ -898,6 +1196,7 @@ void Ps2AddPrim3DEx1P(unsigned long prim, void* dp, unsigned int num)
     *p++ = (SCE_GIF_SET_TAG(0, 1, SCE_GIF_REGLIST, 0, 0, 3) | prim) | num;
     *p++ = GIF_REGLIST(SCE_GS_ST, SCE_GS_RGBAQ, SCE_GS_XYZF2);
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -991,6 +1290,80 @@ void Ps2AddPrim3DEx1P(unsigned long prim, void* dp, unsigned int num)
     .set reorder
     " : : "r"(clip_vec), "r"(near_far_vec), "r"(zclip_ab_vec), "r"(zbuff_ab_vec), "r"(dp), "r"(p), "r"(num) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R1 = {{0}}, R2 = {{0}}, R3 = {{0}}, R4 = {{0}};
+        int ee_cond;
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        ee_reg op4 = {{0}};
+        ee_reg op5 = {{0}};
+        ee_reg op6 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(clip_vec);
+        op1.sd[0] = (int32_t)(uintptr_t)(near_far_vec);
+        op2.sd[0] = (int32_t)(uintptr_t)(zclip_ab_vec);
+        op3.sd[0] = (int32_t)(uintptr_t)(zbuff_ab_vec);
+        op4.sd[0] = (int32_t)(uintptr_t)(dp);
+        op5.sd[0] = (int32_t)(uintptr_t)(p);
+        op6.sd[0] = (int32_t)(uintptr_t)(num);
+        vu_load_vf(10, EE_PTR((op3.w[0] + (uint32_t)(0))));
+        vu_load_vf(13, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(12, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(11, EE_PTR((op2.w[0] + (uint32_t)(0))));
+        vu_upper(U_ITOF0, 1, 10, 10, 0, BC_NONE);
+        vu_upper(U_SUB, 15, 9, 9, 9, BC_NONE);
+        R1.sd[0] = (int32_t)((uint32_t)(((0x3FFFF >> 16))) << 16);
+        R2.d[0] = ee_zero.d[0] | (uint64_t)(uint16_t)(32768);
+        R4.d[0] = R1.d[0] | (uint64_t)(uint16_t)(((0x3FFFF & 0xFFFF)));
+        vu_ctc2(18, ee_zero.w[0]);
+        vu_ctc2(2, R2.w[0]);
+        g_vu0.vi[4] = (uint16_t)(g_vu0.vi[0] + (0));
+        R2.sd[0] = (int32_t)(op6.w[0] + ee_zero.w[0]);
+        vu_div(0, 3, 10, 3);
+    l_002CC51C:;
+        vu_load_vf(4, EE_PTR((op4.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op4.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op4.w[0] + (uint32_t)(32))));
+        vu_mtir(3, 4, 3);
+        vu_upper(U_ADDA, 2, 0, 6, 11, BC_NONE);
+        vu_upper(U_MADD, 2, 7, 6, 11, BC_X);
+        vu_upper(U_SUB, 12, 7, 6, 13, BC_NONE);
+        vu_clipw(7, 13);
+        vu_upper(U_ADDA, 2, 0, 0, 10, BC_NONE);
+        vu_upper(U_MADD, 2, 6, 4, 10, BC_X);
+        vu_upper(U_MAX, 2, 6, 6, 0, BC_NONE);
+        vu_upper(U_FTOI0, 15, 5, 5, 0, BC_NONE);
+        vu_upper(U_MINI, 2, 6, 6, 12, BC_Y);
+        vu_upper(U_ADD, 1, 9, 9, 6, BC_Z);
+        vu_upper(U_FTOI4, 15, 6, 6, 0, BC_NONE);
+        vu_mtir(5, 6, 3);
+        R3.sd[0] = (int32_t)(vu_cfc2(18));
+        R3.d[0] = R3.d[0] & R4.d[0];
+        ee_cond = (R3.sd[0] == 0);
+        if (ee_cond) goto l_002CC570;
+        g_vu0.vi[3] = (uint16_t)(g_vu0.vi[3] | g_vu0.vi[2]);
+    l_002CC570:;
+        g_vu0.vi[5] = (uint16_t)(g_vu0.vi[5] | g_vu0.vi[3]);
+        g_vu0.vi[4] = (uint16_t)(g_vu0.vi[4] & g_vu0.vi[5]);
+        vu_mfir(1, 6, 5);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(0))), 4);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(16))), 5);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(32))), 6);
+        R2.sd[0] = (int32_t)(R2.w[0] + (uint32_t)(-1));
+        op5.sd[0] = (int32_t)(op5.w[0] + (uint32_t)(48));
+        ee_cond = (R2.sd[0] != 0);
+        op4.sd[0] = (int32_t)(op4.w[0] + (uint32_t)(48));
+        if (ee_cond) goto l_002CC51C;
+        R3.sd[0] = (int32_t)(vu_cfc2(4));
+        ee_cond = (R2.sd[0] != 0);
+        if (ee_cond) goto l_002CC600;
+        vu_upper(U_MUL, 1, 4, 9, 0, BC_Q);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(0))), 4);
+    }
+#endif
 
     if ((Ps2_albinoid_flag == 0) && ((prim & 0x20000000000000))) 
     {
@@ -1041,6 +1414,7 @@ void Ps2AddPrim3DMod(unsigned long prim, void* dp, unsigned int num)
     *p++ = (SCE_GIF_SET_TAG(0, 1, SCE_GIF_REGLIST, 0, 0, 3) | prim) | num;
     *p++ = GIF_REGLIST(SCE_GS_ST, SCE_GS_RGBAQ, SCE_GS_XYZF2);
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1134,6 +1508,80 @@ void Ps2AddPrim3DMod(unsigned long prim, void* dp, unsigned int num)
     .set reorder
     " : : "r"(clip_vec), "r"(near_far_vec), "r"(zclip_ab_vec), "r"(zbuff_ab_vec), "r"(dp), "r"(p), "r"(num) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R1 = {{0}}, R2 = {{0}}, R3 = {{0}}, R4 = {{0}};
+        int ee_cond;
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        ee_reg op4 = {{0}};
+        ee_reg op5 = {{0}};
+        ee_reg op6 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(clip_vec);
+        op1.sd[0] = (int32_t)(uintptr_t)(near_far_vec);
+        op2.sd[0] = (int32_t)(uintptr_t)(zclip_ab_vec);
+        op3.sd[0] = (int32_t)(uintptr_t)(zbuff_ab_vec);
+        op4.sd[0] = (int32_t)(uintptr_t)(dp);
+        op5.sd[0] = (int32_t)(uintptr_t)(p);
+        op6.sd[0] = (int32_t)(uintptr_t)(num);
+        vu_load_vf(10, EE_PTR((op3.w[0] + (uint32_t)(0))));
+        vu_load_vf(13, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(12, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(11, EE_PTR((op2.w[0] + (uint32_t)(0))));
+        vu_upper(U_ITOF0, 1, 10, 10, 0, BC_NONE);
+        vu_upper(U_SUB, 15, 9, 9, 9, BC_NONE);
+        R1.sd[0] = (int32_t)((uint32_t)(((0x3FFFF >> 16))) << 16);
+        R2.d[0] = ee_zero.d[0] | (uint64_t)(uint16_t)(32768);
+        R4.d[0] = R1.d[0] | (uint64_t)(uint16_t)(((0x3FFFF & 0xFFFF)));
+        vu_ctc2(18, ee_zero.w[0]);
+        vu_ctc2(2, R2.w[0]);
+        g_vu0.vi[4] = (uint16_t)(g_vu0.vi[0] + (0));
+        R2.sd[0] = (int32_t)(op6.w[0] + ee_zero.w[0]);
+        vu_div(0, 3, 10, 3);
+    l_002CC78C:;
+        vu_load_vf(4, EE_PTR((op4.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op4.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op4.w[0] + (uint32_t)(32))));
+        vu_mtir(3, 4, 3);
+        vu_upper(U_ADDA, 2, 0, 6, 11, BC_NONE);
+        vu_upper(U_MADD, 2, 7, 6, 11, BC_X);
+        vu_upper(U_SUB, 12, 7, 6, 13, BC_NONE);
+        vu_clipw(7, 13);
+        vu_upper(U_ADDA, 2, 0, 0, 10, BC_NONE);
+        vu_upper(U_MADD, 2, 6, 4, 10, BC_X);
+        vu_upper(U_MAX, 2, 6, 6, 0, BC_NONE);
+        vu_upper(U_FTOI0, 15, 5, 5, 0, BC_NONE);
+        vu_upper(U_MINI, 2, 6, 6, 12, BC_Y);
+        vu_upper(U_ADD, 1, 9, 9, 6, BC_Z);
+        vu_upper(U_FTOI4, 15, 6, 6, 0, BC_NONE);
+        vu_mtir(5, 6, 3);
+        R3.sd[0] = (int32_t)(vu_cfc2(18));
+        R3.d[0] = R3.d[0] & R4.d[0];
+        ee_cond = (R3.sd[0] == 0);
+        if (ee_cond) goto l_002CC7E0;
+        g_vu0.vi[3] = (uint16_t)(g_vu0.vi[3] | g_vu0.vi[2]);
+    l_002CC7E0:;
+        g_vu0.vi[5] = (uint16_t)(g_vu0.vi[5] | g_vu0.vi[3]);
+        g_vu0.vi[4] = (uint16_t)(g_vu0.vi[4] & g_vu0.vi[5]);
+        vu_mfir(1, 6, 5);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(0))), 4);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(16))), 5);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(32))), 6);
+        R2.sd[0] = (int32_t)(R2.w[0] + (uint32_t)(-1));
+        op5.sd[0] = (int32_t)(op5.w[0] + (uint32_t)(48));
+        ee_cond = (R2.sd[0] != 0);
+        op4.sd[0] = (int32_t)(op4.w[0] + (uint32_t)(48));
+        if (ee_cond) goto l_002CC78C;
+        R3.sd[0] = (int32_t)(vu_cfc2(4));
+        ee_cond = (R2.sd[0] != 0);
+        if (ee_cond) goto l_002CC82C;
+        vu_upper(U_MUL, 1, 4, 9, 0, BC_Q);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(0))), 4);
+    }
+#endif
 
     SyncPath();
     
@@ -1166,31 +1614,65 @@ void Ps2AddOT(void* p, unsigned int num, float z, unsigned long prim)
     unsigned int i; 
     unsigned int size; 
     register unsigned int otz = 0; 
-    unsigned int id; 
+    unsigned int id;
 
+#ifdef TARGET_PC
+    /* neither the list nor the packet buffer was bounds-checked: a full one drops the primitive
+       (translucent and sorted strips of a very large room, docs/MAPS.md 7) */
+    if ((Ps2_ot_list_no >= PC_OT_ENTRIES) || (((unsigned char*)Ps2_PP + 64 + (((num * 3) + 1) * 16)) > (unsigned char*)((int)&Ps2_PBUFF | 0x30000000) + PC_PBUFF_SIZE))
+    {
+        static int warned;
+
+        if (warned++ == 0)
+        {
+            host_log("Ps2AddOT: ordering table full (%u entries), primitives dropped\n", Ps2_ot_list_no);
+        }
+
+        return;
+    }
+
+#endif
     if (Ps2_ice_flag != 0)
     { 
         id = Ps2_now_tex->globalIndex & 0xFFFFF; 
         
         if (((id >= 26510) && (id <= 26614)) || (id == 107170)) 
         { 
-            asm volatile (cvt.w.s f12, f12); 
-            asm volatile (mfc1      otz, f12); 
+#ifndef TARGET_PC
+            asm volatile (cvt.w.s f12, f12);
+#else
+            otz = (unsigned int)(int)z;   /* cvt.w.s (truncates) of the float argument in f12 */
+#endif 
+#ifndef TARGET_PC
+            asm volatile (mfc1      otz, f12);
+#endif 
             
             otz >>= 12;
         } 
         else 
         { 
-            asm volatile (cvt.w.s f12, f12); 
-            asm volatile (mfc1      otz, f12); 
+#ifndef TARGET_PC
+            asm volatile (cvt.w.s f12, f12);
+#else
+            otz = (unsigned int)(int)z;   /* cvt.w.s (truncates) of the float argument in f12 */
+#endif 
+#ifndef TARGET_PC
+            asm volatile (mfc1      otz, f12);
+#endif 
             
             otz >>= 4;
         }
     } 
     else 
     { 
-        asm volatile (cvt.w.s f12, f12); 
-        asm volatile (mfc1      otz, f12); 
+#ifndef TARGET_PC
+        asm volatile (cvt.w.s f12, f12);
+#else
+        otz = (unsigned int)(int)z;   /* cvt.w.s (truncates) of the float argument in f12 */
+#endif 
+#ifndef TARGET_PC
+        asm volatile (mfc1      otz, f12);
+#endif 
         
         otz >>= 4; 
     }
@@ -1234,22 +1716,22 @@ void Ps2AddOT(void* p, unsigned int num, float z, unsigned long prim)
     
     num = (num * 3) + 1; 
     
-    (char*)Ps2_PP += 16; 
+    PS2_PTRADD(Ps2_PP, 16); 
         
-    *((long*)Ps2_PP)++ = DMAnext | ((*(long*)p) & 0xFFFFFFF); 
-    *((long*)Ps2_PP)++ = 0; 
+    PS2_POSTINC(long, Ps2_PP) = DMAnext | ((*(long*)p) & 0xFFFFFFF); 
+    PS2_POSTINC(long, Ps2_PP) = 0; 
     
-    *((long*)Ps2_PP)++ = SCE_GIF_SET_TAG(1, 0, 0, 0, 0, 1); 
-    *((long*)Ps2_PP)++ = SCE_GIF_PACKED_AD; 
+    PS2_POSTINC(long, Ps2_PP) = SCE_GIF_SET_TAG(1, 0, 0, 0, 0, 1); 
+    PS2_POSTINC(long, Ps2_PP) = SCE_GIF_PACKED_AD; 
     
-    *((long*)Ps2_PP)++ = Ps2_gs_save.ALPHA; 
-    *((long*)Ps2_PP)++ = SCE_GS_ALPHA_1; 
+    PS2_POSTINC(long, Ps2_PP) = Ps2_gs_save.ALPHA; 
+    PS2_POSTINC(long, Ps2_PP) = SCE_GS_ALPHA_1; 
     
-    (char*)p += 48; 
+    PS2_PTRADD(p, 48); 
     
     for (i = 0; i < num; i++) 
     { 
-        *((u_long128*)Ps2_PP)++ = *((u_long128*)p)++; 
+        PS2_POSTINC(u_long128, Ps2_PP) = PS2_POSTINC(u_long128, p); 
     } 
     
     Ps2_ot_list_no++; 
@@ -1306,7 +1788,11 @@ int Ps2DrawOTagSub(int start_no)
     
     for (i = 0; i < 64; i++) 
     { 
+#ifndef TARGET_PC
         *(u_long128*)&ps2_tp_cache[i] = 0; 
+#else
+        memset(&ps2_tp_cache[i], 0, sizeof(u_long128));
+#endif
     } 
     
     for (i = start_no; i < 4096; i++) 
@@ -1334,9 +1820,18 @@ int Ps2DrawOTagSub(int start_no)
             { 
                 if (tex_cache_num >= 64) 
                 { 
+#ifndef TARGET_PC
                     printf("Ps2DrawOTag ERROR!\n");
                     
                     exit(0); 
+#else
+                    /* more distinct textures in one pass than the walker's cache holds:
+                       draw what is chained and continue in a new pass, as when its GS
+                       memory is full, instead of quitting the game */
+                    exit_no = i; 
+                    Ps2_OT[i][0] = p; 
+                    goto block; 
+#endif
                 }
 
                 timp = (TIM2_PICTUREHEADER_EX*)p->tp->texinfo.texsurface.pSurface; 
@@ -1444,7 +1939,9 @@ int Ps2DrawOTagSub(int start_no)
         ((long*)old_p->p)[2] = (((long*)(temp = old_p)->p)[2] & 0xFFFFFFF) | 0x70000000; 
         ((long*)old_p->p)[8] = ((long*)old_p->p)[8] | 0x8000; 
         
+#ifndef TARGET_PC   /* a debug line per drawn ordering table */
         printf("TEX %05d:%05d]", 0x3F80 - tex_addr, 0x3FCC - clt_addr); 
+#endif
         
         save_alpha[0] = Ps2_gs_save.mode_bk[0]; 
         save_alpha[1] = Ps2_gs_save.mode_bk[1]; 
@@ -1454,7 +1951,11 @@ int Ps2DrawOTagSub(int start_no)
         
         SyncPath();
         
+#ifndef TARGET_PC
         loadImage((void*)((int)start_addr & 0xFFFFFF));
+#else
+        loadImage(start_addr); /* host packet buffers may lie beyond the 16 MB the mask assumes */
+#endif
         
         SyncPath(); 
         
@@ -1470,6 +1971,7 @@ int Ps2DrawOTagSub(int start_no)
 // 100% matching!
 unsigned int Ps2BitCount(register unsigned int value)
 {
+#ifndef TARGET_PC
     asm volatile
     {
         
@@ -1483,6 +1985,19 @@ unsigned int Ps2BitCount(register unsigned int value)
         nop
             
     }
+#else
+    { /* asm2c */
+        ee_reg R2 = {{0}}, R3 = {{0}};
+        const ee_reg ee_zero = {{0}};
+        ee_reg cv_value = {{0}};
+        cv_value.sd[0] = (int32_t)(uintptr_t)(value);
+        R2.sd[0] = (int32_t)(cv_value.w[0] + (uint32_t)(-1));
+        R3.sd[0] = (int32_t)(ee_zero.w[0] + (uint32_t)(31));
+        ee_plzcw(&R2, &R2);
+        R2.sd[0] = (int32_t)(R3.w[0] + -R2.w[0]);
+        return R2.w[0]; /* the asm returned in v0 */
+    }
+#endif
 }
 
 // 100% matching!
@@ -2356,6 +2871,7 @@ void Ps2AddPrim3DExI(unsigned long prim, void* dp, unsigned int num)
     *p++ = (SCE_GIF_SET_TAG(0, 1, SCE_GIF_REGLIST, 0, 0, 3) | prim) | num;
     *p++ = GIF_REGLIST(SCE_GS_ST, SCE_GS_RGBAQ, SCE_GS_XYZF2);
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -2445,6 +2961,85 @@ void Ps2AddPrim3DExI(unsigned long prim, void* dp, unsigned int num)
     .set reorder
     " : : "r"(clip_vec), "r"(near_far_vec), "r"(zclip_ab_vec), "r"(zbuff_ab_vec), "r"(dp), "r"(p), "r"(num), "r"(clip_flag), "r"(st_clip_flag), "r"(clut_flag)  : "v0", "memory" 
     );
+#else
+    { /* asm2c */
+        ee_reg R2 = {{0}};
+        int ee_cond;
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        ee_reg op4 = {{0}};
+        ee_reg op5 = {{0}};
+        ee_reg op6 = {{0}};
+        ee_reg op7 = {{0}};
+        ee_reg op8 = {{0}};
+        ee_reg op9 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(clip_vec);
+        op1.sd[0] = (int32_t)(uintptr_t)(near_far_vec);
+        op2.sd[0] = (int32_t)(uintptr_t)(zclip_ab_vec);
+        op3.sd[0] = (int32_t)(uintptr_t)(zbuff_ab_vec);
+        op4.sd[0] = (int32_t)(uintptr_t)(dp);
+        op5.sd[0] = (int32_t)(uintptr_t)(p);
+        op6.sd[0] = (int32_t)(uintptr_t)(num);
+        op7.sd[0] = (int32_t)(uintptr_t)(clip_flag);
+        op8.sd[0] = (int32_t)(uintptr_t)(st_clip_flag);
+        op9.sd[0] = (int32_t)(uintptr_t)(clut_flag);
+        vu_load_vf(10, EE_PTR((op3.w[0] + (uint32_t)(0))));
+        vu_load_vf(13, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(12, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(11, EE_PTR((op2.w[0] + (uint32_t)(0))));
+        vu_upper(U_ITOF0, 1, 10, 10, 0, BC_NONE);
+        vu_upper(U_SUB, 15, 9, 9, 9, BC_NONE);
+        R2.sd[0] = (int64_t)(int32_t)(32768);
+        op9.sd[0] = (int64_t)(int32_t)(262143);
+        vu_ctc2(18, ee_zero.w[0]);
+        vu_ctc2(2, R2.w[0]);
+        g_vu0.vi[4] = (uint16_t)(g_vu0.vi[0] + (0));
+        R2.d[0] = op6.d[0];
+        vu_div(0, 3, 10, 3);
+    l_002CED6C:;
+        vu_load_vf(4, EE_PTR((op4.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op4.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op4.w[0] + (uint32_t)(32))));
+        vu_mtir(3, 4, 3);
+        vu_upper(U_ADDA, 2, 0, 6, 11, BC_NONE);
+        vu_upper(U_MADD, 2, 7, 6, 11, BC_X);
+        vu_upper(U_SUB, 12, 7, 6, 13, BC_NONE);
+        vu_clipw(7, 13);
+        vu_upper(U_ADDA, 2, 0, 0, 10, BC_NONE);
+        vu_upper(U_MADD, 2, 6, 4, 10, BC_X);
+        vu_upper(U_MAX, 2, 6, 6, 0, BC_NONE);
+        vu_upper(U_FTOI0, 15, 5, 5, 0, BC_NONE);
+        vu_upper(U_MINI, 2, 6, 6, 12, BC_Y);
+        vu_upper(U_ADD, 1, 9, 9, 6, BC_Z);
+        vu_upper(U_FTOI4, 15, 6, 6, 0, BC_NONE);
+        vu_mtir(5, 6, 3);
+        op8.sd[0] = (int32_t)(vu_cfc2(18));
+        op7.d[0] = op8.d[0] & op9.d[0];
+        ee_cond = (op7.sd[0] == 0);
+        if (ee_cond) goto l_002CEDC0;
+        g_vu0.vi[3] = (uint16_t)(g_vu0.vi[3] | g_vu0.vi[2]);
+    l_002CEDC0:;
+        g_vu0.vi[5] = (uint16_t)(g_vu0.vi[5] | g_vu0.vi[3]);
+        g_vu0.vi[4] = (uint16_t)(g_vu0.vi[4] & g_vu0.vi[5]);
+        vu_mfir(1, 6, 5);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(0))), 4);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(16))), 5);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(32))), 6);
+        R2.sd[0] = (int32_t)(R2.w[0] + (uint32_t)(-1));
+        op5.sd[0] = (int32_t)(op5.w[0] + (uint32_t)(48));
+        ee_cond = (R2.sd[0] != 0);
+        op4.sd[0] = (int32_t)(op4.w[0] + (uint32_t)(48));
+        if (ee_cond) goto l_002CED6C;
+        op7.sd[0] = (int32_t)(vu_cfc2(4));
+        ee_cond = (R2.sd[0] != 0);
+        if (ee_cond) goto l_002CF178;
+        vu_upper(U_MUL, 1, 4, 9, 0, BC_Q);
+        vu_store_vf(EE_PTR((op5.w[0] + (uint32_t)(0))), 4);
+    }
+#endif
 
     if ((prim & 0x20000000000000)) 
     {

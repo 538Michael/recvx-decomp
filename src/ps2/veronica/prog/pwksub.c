@@ -19,7 +19,11 @@ unsigned char* bhGetFreeMemory(int size, int param) // second parameter is not p
     
     sys->memp = (unsigned char*)(((int)sys->memp + 63) & ~0x3F);
     
+#ifdef TARGET_PC
+    if (((sys->memp + size) - freemem) > 12845056 + PC_ARENA_EXTRA) 
+#else
     if (((sys->memp + size) - freemem) > 12845056) 
+#endif
     {
         return NULL;
     } 
@@ -2461,6 +2465,15 @@ int bhCheckC2WallN(NJS_CAPSULE* cap, unsigned int flg)
     return 0;
 }
 
+#ifndef TARGET_PC
+#define PC_CLIP_X0 1472.0f
+#define PC_CLIP_X1 2624.0f
+#else
+/* hor+: the visible area (GS x 2048 +- 320, plus the game's 256 pixel margin) is widened */
+#define PC_CLIP_X0 (2048.0f - 576.0f - 320.0f * (pc_hor_scale() - 1.0f))
+#define PC_CLIP_X1 (2048.0f + 576.0f + 320.0f * (pc_hor_scale() - 1.0f))
+#endif
+
 // 100% matching!
 int bhCheckClipModel(BH_PWORK* pp)
 {
@@ -2476,6 +2489,9 @@ int bhCheckClipModel(BH_PWORK* pp)
     {
         return 1;
     }
+#ifdef TARGET_PC
+    if (!pc_model_cull()) return 0;   /* option / third person: always drawn */
+#endif
     
     for (i = 0; i < 8; i++) 
     {
@@ -2490,7 +2506,7 @@ int bhCheckClipModel(BH_PWORK* pp)
         
         njCalcPoint(cam.mtx, (NJS_POINT3*)&mlwP->owP[jno].mtx[12], &p3);
         
-        if (((p2.x > 1472.0f) && (p2.x < 2624.0f)) && ((p2.y > 1632.0f) && (p2.y < 2624.0f)) && (p3.z > -1.0f)) 
+        if (((p2.x > PC_CLIP_X0) && (p2.x < PC_CLIP_X1)) && ((p2.y > 1632.0f) && (p2.y < 2624.0f)) && (p3.z > -1.0f)) 
         {
             return 0;
         }
@@ -2505,11 +2521,14 @@ int bhCheckClipPoint(NJS_POINT3* pos)
 	NJS_POINT2 p2;
     NJS_POINT3 p3;
     
+#ifdef TARGET_PC
+    if (!pc_model_cull()) return 0;   /* option / third person: always drawn */
+#endif
     njProjectScreen(cam.mtx, pos, &p2);
     
     njCalcPoint(cam.mtx, pos, &p3);
     
-    if (((p2.x > 1472.0f) && (p2.x < 2624.0f)) && ((p2.y > 1632.0f) && (p2.y < 2624.0f)) && (p3.z > -1.0f))
+    if (((p2.x > PC_CLIP_X0) && (p2.x < PC_CLIP_X1)) && ((p2.y > 1632.0f) && (p2.y < 2624.0f)) && (p3.z > -1.0f))
     {
         return 0;
     }

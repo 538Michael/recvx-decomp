@@ -1575,6 +1575,9 @@ void bhCalcSpEvtComFade()
 // 100% matching!
 void bhDrawSpEvtComFade()
 {
+#ifdef TARGET_PC
+    if (!pc_overlay_begin(PC_OVL_FADE)) return;
+#endif
     COM_EVT_WORK* ce; 
     NJS_POINT2COL p2c; 
     NJS_POINT2 p[4];   
@@ -1605,6 +1608,9 @@ void bhDrawSpEvtComFade()
     p[3].y = 480.0f;
     
     njDrawPolygon2D(&p2c, 4, -0.8f, 0x60);
+#ifdef TARGET_PC
+    pc_overlay_end();
+#endif
 }
 
 // 100% matching!
@@ -1940,12 +1946,20 @@ void bhControlComEvtScript()
             ce->scp++;
             break;
         case 236:
+#ifndef TARGET_PC
             ce->scp = ce->sclb[*ce->scp++];
+#else
+            { int lb_ = *ce->scp++; ce->scp = ce->sclb[lb_]; }   /* unsequenced in the original: jump target wins */
+#endif
             break;
         case 237:
             if ((ce->lcflg & (1 << *ce->scp++))) 
             {
+#ifndef TARGET_PC
                 ce->scp = ce->sclb[*ce->scp++];
+#else
+                { int lb_ = *ce->scp++; ce->scp = ce->sclb[lb_]; }   /* unsequenced in the original: jump target wins */
+#endif
             }
             else 
             {
@@ -1975,7 +1989,12 @@ void bhControlComEvtScript()
             ce->frm_no = *ce->scp++;
             break;
         case 240:
+#ifndef TARGET_PC
             flgno = *ce->scp++ | (*ce->scp++ << 8);
+#else
+            flgno = *ce->scp++;              /* unsequenced in the original: MWCC read low byte first */
+            flgno |= *ce->scp++ << 8;
+#endif
             
             bhStFlg(sys->ev_flg, flgno);
             break;

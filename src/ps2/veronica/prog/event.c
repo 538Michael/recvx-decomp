@@ -378,6 +378,13 @@ void bhInitEvent()
 // 100% matching!
 void bhControlEvent()
 {
+#ifdef TARGET_PC
+    if (coop_on)
+    {
+        coop_scd1(); /* the same per-frame script, traced: world events shared with the partner */
+    }
+    else
+#endif
     bhScenarioCheck((unsigned char*)bhScd2Ptr);
     
     bhEventScheduler2();

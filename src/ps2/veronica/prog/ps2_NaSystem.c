@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_NaSystem.h"
 #include "../../../ps2/veronica/prog/ps2_dummy.h"
 #include "../../../ps2/veronica/prog/ps2_loadtim2.h"
@@ -77,8 +80,12 @@ void Ps2SwapDBuff()
     
     while (Ps2_vcount < 2) 
     { 
+#ifndef TARGET_PC
         asm("nop");
         asm("nop");
+#else
+        ps2_wait_vblank(); /* blocks until the next emulated VBLANK interrupt has been delivered */
+#endif
     } 
     
     PS2_swap(); 

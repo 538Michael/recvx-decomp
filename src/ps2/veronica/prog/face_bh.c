@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/face.h"
 #include "../../../ps2/veronica/prog/face_bh.h"
 #include "../../../ps2/veronica/prog/ps2_NaColi.h"
@@ -577,7 +580,12 @@ void fmCnkInitContext(MASK_WORK* fm, void* data, NJS_CNK_OBJECT* root, ML_WORK* 
     {
         for (j = 0; j++ < vlist->nvnum; ) 
         {
+#ifndef TARGET_PC
             *nlist++ = (int)&dvp[*nlist * vofs];
+#else
+            *nlist = (int)&dvp[*nlist * vofs];   /* unsequenced in the original; retail reads, then advances */
+            nlist++;
+#endif
         } 
     }
     
@@ -793,6 +801,7 @@ void _fmCnkCalcMuscle(MASK_WORK* fm)
     
     n = fm->jnum;
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -821,6 +830,38 @@ void _fmCnkCalcMuscle(MASK_WORK* fm)
     .set reorder
     " : "=r"(n), "=r"(jaw) : "r"(jaw->id), "r"(svp), "r"(dvp) : "t0", "t1", "t2", "t3", "memory" 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+        int ee_cond;
+        const ee_reg ee_zero = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op3 = {{0}};
+        ee_reg op4 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(n);
+        op1.sd[0] = (int32_t)(uintptr_t)(jaw);
+        op3.sd[0] = (int32_t)(uintptr_t)(svp);
+        op4.sd[0] = (int32_t)(uintptr_t)(dvp);
+        ee_cond = (op0.sd[0] <= ee_zero.sd[0]);
+        R8.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(TANG_WORK, id))));
+        if (ee_cond) goto lbl_8C;
+    lbl_5C:;
+        R8.sd[0] = (int32_t)(R8.w[0] * (uint32_t)(32));
+        R9.sd[0] = (int32_t)(op4.w[0] + R8.w[0]);
+        R10.sd[0] = (int32_t)(op3.w[0] + R8.w[0]);
+        ee_lq(&R11, (R10.w[0] + (uint32_t)(0)));
+        op1.sd[0] = (int32_t)(op1.w[0] + (uint32_t)(8));
+        op0.sd[0] = (int32_t)(op0.w[0] + (uint32_t)(-1));
+        R8.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(TANG_WORK, id))));
+        ee_cond = (op0.sd[0] > ee_zero.sd[0]);
+        ee_sq((R9.w[0] + (uint32_t)(0)), &R11);
+        if (ee_cond) goto lbl_5C;
+    lbl_8C:;
+        n = (__typeof__(n))(uintptr_t)op0.w[0];
+        jaw = (__typeof__(jaw))(uintptr_t)op1.w[0];
+    }
+#endif
     
     con = fm->list;
     list = fm->vlist;
@@ -869,6 +910,7 @@ void _fmCnkCalcMuscle(MASK_WORK* fm)
         p0 = mvp;
         p1 = mrp;
         
+#ifndef TARGET_PC
         asm volatile
         ("
         .set noreorder
@@ -926,6 +968,65 @@ void _fmCnkCalcMuscle(MASK_WORK* fm)
         " : "=r"(svp), "=r"(dvp), "=r"(p0), "=r"(p1) : "f"(rsum), "r"(mvp), "r"(mrp), "r"(m)
           : "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "t0", "t1", "memory"
         );
+#else
+        { /* asm2c */
+            ee_reg R8 = {{0}}, R9 = {{0}};
+            float F1 = 0.0f, F2 = 0.0f, F3 = 0.0f, F4 = 0.0f, F5 = 0.0f, F6 = 0.0f, F7 = 0.0f, F8 = 0.0f;
+            int ee_cond;
+            const ee_reg ee_zero = {{0}};
+            ee_reg op1 = {{0}};
+            ee_reg op2 = {{0}};
+            ee_reg op3 = {{0}};
+            ee_reg op4 = {{0}};
+            ee_reg op5 = {{0}};
+            ee_reg op6 = {{0}};
+            ee_reg op7 = {{0}};
+            op1.sd[0] = (int32_t)(uintptr_t)(dvp);
+            op2.sd[0] = (int32_t)(uintptr_t)(p0);
+            op3.sd[0] = (int32_t)(uintptr_t)(p1);
+            op4.f[0] = (float)(rsum);
+            op5.sd[0] = (int32_t)(uintptr_t)(mvp);
+            op6.sd[0] = (int32_t)(uintptr_t)(mrp);
+            op7.sd[0] = (int32_t)(uintptr_t)(m);
+            ee_cond = (op7.sd[0] <= ee_zero.sd[0]);
+            R8.sd[0] = (int32_t)(ee_f2u(op4.f[0]));
+            if (ee_cond) goto lbl_220;
+            op2.sd[0] = (int32_t)(op5.w[0] + (uint32_t)(-4));
+            op3.sd[0] = (int32_t)(op6.w[0] + (uint32_t)(-4));
+            op7.sd[0] = (int32_t)(op7.w[0] + (uint32_t)(-1));
+            F8 = ee_u2f(R8.w[0]);
+            F7 = EE_LWF((op3.w[0] + (uint32_t)(0)));
+            R9.sd[0] = EE_LW((op2.w[0] + (uint32_t)(0)));
+            F1 = EE_LWF((op1.w[0] + (uint32_t)(0)));
+            F2 = EE_LWF((op1.w[0] + (uint32_t)(4)));
+            F3 = EE_LWF((op1.w[0] + (uint32_t)(8)));
+        lbl_1D0:;
+            F7 = vu_clampf(F7 * F8);
+            F4 = EE_LWF((R9.w[0] + (uint32_t)(0)));
+            F5 = EE_LWF((R9.w[0] + (uint32_t)(4)));
+            F6 = EE_LWF((R9.w[0] + (uint32_t)(8)));
+            op3.sd[0] = (int32_t)(op3.w[0] + (uint32_t)(-4));
+            F4 = vu_clampf(F4 * F7);
+            F5 = vu_clampf(F5 * F7);
+            F6 = vu_clampf(F6 * F7);
+            op2.sd[0] = (int32_t)(op2.w[0] + (uint32_t)(-4));
+            F1 = vu_clampf(F1 + F4);
+            F2 = vu_clampf(F2 + F5);
+            F3 = vu_clampf(F3 + F6);
+            op7.sd[0] = (int32_t)(op7.w[0] + (uint32_t)(-1));
+            F7 = EE_LWF((op3.w[0] + (uint32_t)(0)));
+            ee_cond = (op7.sd[0] >= ee_zero.sd[0]);
+            R9.sd[0] = EE_LW((op2.w[0] + (uint32_t)(0)));
+            if (ee_cond) goto lbl_1D0;
+            EE_SWF((op1.w[0] + (uint32_t)(0)), F1);
+            EE_SWF((op1.w[0] + (uint32_t)(4)), F2);
+            EE_SWF((op1.w[0] + (uint32_t)(8)), F3);
+        lbl_220:;
+            dvp = (__typeof__(dvp))(uintptr_t)op1.w[0];
+            p0 = (__typeof__(p0))(uintptr_t)op2.w[0];
+            p1 = (__typeof__(p1))(uintptr_t)op3.w[0];
+        }
+#endif
     }
 }
 
@@ -973,6 +1074,7 @@ void _fmCnkCalcJaw(MASK_WORK* fm)
             
             if (jaw->rate == 1.0f) 
             {
+#ifndef TARGET_PC
                 asm volatile
                 ("
                 .set noreorder
@@ -1006,7 +1108,36 @@ void _fmCnkCalcJaw(MASK_WORK* fm)
                     sw          t1, NJS_POINT4.z(%0) 
                 .set reorder
                 " : : "r"(&vec), "r"(mat), "r"(dvp1) : 
-                ); 
+                );
+#else
+                { /* asm2c */
+                    ee_reg R8 = {{0}}, R9 = {{0}};
+                    ee_reg op0 = {{0}};
+                    ee_reg op1 = {{0}};
+                    ee_reg op2 = {{0}};
+                    op0.sd[0] = (int32_t)(uintptr_t)(&vec);
+                    op1.sd[0] = (int32_t)(uintptr_t)(mat);
+                    op2.sd[0] = (int32_t)(uintptr_t)(dvp1);
+                    R8.d[0] = ee_ldl(R8.d[0], (op2.w[0] + (uint32_t)(7)));
+                    R8.d[0] = ee_ldr(R8.d[0], (op2.w[0] + (uint32_t)(0)));
+                    R9.sd[0] = EE_LW((op2.w[0] + (uint32_t)(offsetof(NJS_POINT4, z))));
+                    ee_pcpyld(&R8, &R9, &R8);
+                    vu_load_vf(4, &R8);
+                    vu_load_vf(5, EE_PTR((op1.w[0] + (uint32_t)(0))));
+                    vu_load_vf(6, EE_PTR((op1.w[0] + (uint32_t)(16))));
+                    vu_load_vf(7, EE_PTR((op1.w[0] + (uint32_t)(32))));
+                    vu_load_vf(8, EE_PTR((op1.w[0] + (uint32_t)(48))));
+                    vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+                    vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+                    vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+                    vu_upper(U_MADD, 14, 18, 8, 0, BC_W);
+                    vu_store_vf(&R8, 18);
+                    ee_pcpyud(&R9, &R8, &R8);
+                    ee_sdl((op0.w[0] + (uint32_t)(7)), R8.d[0]);
+                    ee_sdr((op0.w[0] + (uint32_t)(0)), R8.d[0]);
+                    EE_SW((op0.w[0] + (uint32_t)(offsetof(NJS_POINT4, z))), R9.d[0]);
+                }
+#endif 
             } 
             else 
             {
@@ -1014,6 +1145,7 @@ void _fmCnkCalcJaw(MASK_WORK* fm)
                 
                 njRotateX(mat2, (int)(182.04445f * (jawang * jaw->rate)) & 0xFFFF);
                 
+#ifndef TARGET_PC
                 asm volatile
                 ("
                 .set noreorder
@@ -1083,7 +1215,63 @@ void _fmCnkCalcJaw(MASK_WORK* fm)
                     sw          t1, NJS_POINT4.z(%0) 
                 .set reorder
                 " : : "r"(&vec), "r"(dvp1), "r"(jmat1), "r"(mat2), "f"(jawtrans) : 
-                ); 
+                );
+#else
+                { /* asm2c */
+                    ee_reg R8 = {{0}}, R9 = {{0}};
+                    ee_reg op0 = {{0}};
+                    ee_reg op1 = {{0}};
+                    ee_reg op2 = {{0}};
+                    ee_reg op3 = {{0}};
+                    ee_reg op4 = {{0}};
+                    op0.sd[0] = (int32_t)(uintptr_t)(&vec);
+                    op1.sd[0] = (int32_t)(uintptr_t)(dvp1);
+                    op2.sd[0] = (int32_t)(uintptr_t)(jmat1);
+                    op3.sd[0] = (int32_t)(uintptr_t)(mat2);
+                    op4.f[0] = (float)(jawtrans);
+                    R8.sd[0] = (int32_t)(ee_f2u(op4.f[0]));
+                    vu_load_vf(5, EE_PTR((op3.w[0] + (uint32_t)(0))));
+                    vu_load_vf(6, EE_PTR((op3.w[0] + (uint32_t)(16))));
+                    vu_load_vf(7, EE_PTR((op3.w[0] + (uint32_t)(32))));
+                    vu_load_vf(8, EE_PTR((op3.w[0] + (uint32_t)(48))));
+                    vu_load_vf(4, &R8);
+                    vu_load_vf(9, EE_PTR((op2.w[0] + (uint32_t)(0))));
+                    vu_load_vf(10, EE_PTR((op2.w[0] + (uint32_t)(16))));
+                    vu_load_vf(11, EE_PTR((op2.w[0] + (uint32_t)(32))));
+                    vu_load_vf(12, EE_PTR((op2.w[0] + (uint32_t)(48))));
+                    vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+                    vu_upper(U_MADDA, 14, 0, 6, 0, BC_X);
+                    vu_upper(U_MADDA, 14, 0, 7, 0, BC_X);
+                    vu_upper(U_MADD, 14, 8, 8, 0, BC_W);
+                    R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+                    R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+                    R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_POINT4, z))));
+                    vu_upper(U_MULA, 14, 0, 5, 9, BC_X);
+                    vu_upper(U_MADDA, 14, 0, 6, 9, BC_Y);
+                    vu_upper(U_MADD, 14, 9, 7, 9, BC_Z);
+                    ee_pcpyld(&R8, &R9, &R8);
+                    vu_upper(U_MULA, 14, 0, 5, 10, BC_X);
+                    vu_upper(U_MADDA, 14, 0, 6, 10, BC_Y);
+                    vu_upper(U_MADD, 14, 10, 7, 10, BC_Z);
+                    vu_load_vf(13, &R8);
+                    vu_upper(U_MULA, 14, 0, 5, 11, BC_X);
+                    vu_upper(U_MADDA, 14, 0, 6, 11, BC_Y);
+                    vu_upper(U_MADD, 14, 11, 7, 11, BC_Z);
+                    vu_upper(U_MULA, 14, 0, 5, 12, BC_X);
+                    vu_upper(U_MADDA, 14, 0, 6, 12, BC_Y);
+                    vu_upper(U_MADDA, 14, 0, 7, 12, BC_Z);
+                    vu_upper(U_MADD, 14, 12, 8, 0, BC_W);
+                    vu_upper(U_MULA, 14, 0, 9, 13, BC_X);
+                    vu_upper(U_MADDA, 14, 0, 10, 13, BC_Y);
+                    vu_upper(U_MADDA, 14, 0, 11, 13, BC_Z);
+                    vu_upper(U_MADD, 14, 18, 12, 0, BC_W);
+                    vu_store_vf(&R8, 18);
+                    ee_pcpyud(&R9, &R8, &R8);
+                    ee_sdl((op0.w[0] + (uint32_t)(7)), R8.d[0]);
+                    ee_sdr((op0.w[0] + (uint32_t)(0)), R8.d[0]);
+                    EE_SW((op0.w[0] + (uint32_t)(offsetof(NJS_POINT4, z))), R9.d[0]);
+                }
+#endif 
             }
             
             *(u_long128*)dvp1 = *(u_long128*)&vec;
@@ -1127,6 +1315,7 @@ void _fmCnkCalcEye(MASK_WORK* fm)
         { 
             njPushMatrix(NULL);
             
+#ifndef TARGET_PC
             asm volatile
             ("
             .set noreorder
@@ -1189,7 +1378,63 @@ void _fmCnkCalcEye(MASK_WORK* fm)
                 sw          t3, NJS_POINT3.z(%2)
             .set reorder
             " : : "r"(&fm->eyemat[i]), "r"(&obj->pos), "r"(&q3), "r"(&t3), "r"(&r3), "r"(&fm->param.eye) : 
-            ); 
+            );
+#else
+            { /* asm2c */
+                ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}}, R12 = {{0}}, R13 = {{0}};
+                ee_reg op0 = {{0}};
+                ee_reg op1 = {{0}};
+                ee_reg op2 = {{0}};
+                ee_reg op3 = {{0}};
+                ee_reg op4 = {{0}};
+                ee_reg op5 = {{0}};
+                op0.sd[0] = (int32_t)(uintptr_t)(&fm->eyemat[i]);
+                op1.sd[0] = (int32_t)(uintptr_t)(&obj->pos);
+                op2.sd[0] = (int32_t)(uintptr_t)(&q3);
+                op3.sd[0] = (int32_t)(uintptr_t)(&t3);
+                op4.sd[0] = (int32_t)(uintptr_t)(&r3);
+                op5.sd[0] = (int32_t)(uintptr_t)(&fm->param.eye);
+                R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+                R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+                R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_POINT3, z))));
+                ee_pcpyld(&R8, &R9, &R8);
+                vu_load_vf(4, &R8);
+                R10.d[0] = ee_ldl(R10.d[0], (op3.w[0] + (uint32_t)(7)));
+                R10.d[0] = ee_ldr(R10.d[0], (op3.w[0] + (uint32_t)(0)));
+                R11.sd[0] = EE_LW((op3.w[0] + (uint32_t)(offsetof(NJS_POINT3, z))));
+                ee_pcpyld(&R10, &R11, &R10);
+                vu_load_vf(5, &R10);
+                R12.d[0] = ee_ldl(R12.d[0], (op5.w[0] + (uint32_t)(7)));
+                R12.d[0] = ee_ldr(R12.d[0], (op5.w[0] + (uint32_t)(0)));
+                R13.sd[0] = EE_LW((op5.w[0] + (uint32_t)(offsetof(NJS_POINT3, z))));
+                ee_pcpyld(&R12, &R13, &R12);
+                vu_load_vf(6, &R12);
+                vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(0))));
+                vu_load_vf(8, EE_PTR((op0.w[0] + (uint32_t)(16))));
+                vu_load_vf(9, EE_PTR((op0.w[0] + (uint32_t)(32))));
+                vu_load_vf(10, EE_PTR((op0.w[0] + (uint32_t)(48))));
+                vu_upper(U_MULA, 14, 0, 7, 4, BC_X);
+                vu_upper(U_MADDA, 14, 0, 8, 4, BC_Y);
+                vu_upper(U_MADDA, 14, 0, 9, 4, BC_Z);
+                vu_upper(U_MADD, 14, 11, 10, 0, BC_W);
+                vu_upper(U_MULA, 14, 0, 7, 5, BC_X);
+                vu_upper(U_MADDA, 14, 0, 8, 5, BC_Y);
+                vu_upper(U_MADDA, 14, 0, 9, 5, BC_Z);
+                vu_upper(U_MADD, 14, 12, 10, 0, BC_W);
+                vu_upper(U_ADD, 14, 7, 11, 6, BC_NONE);
+                vu_upper(U_SUB, 14, 8, 7, 11, BC_NONE);
+                vu_store_vf(&R8, 12);
+                vu_store_vf(&R10, 8);
+                ee_pcpyud(&R9, &R8, &R8);
+                ee_pcpyud(&R11, &R10, &R10);
+                ee_sdl((op4.w[0] + (uint32_t)(7)), R8.d[0]);
+                ee_sdr((op4.w[0] + (uint32_t)(0)), R8.d[0]);
+                EE_SW((op4.w[0] + (uint32_t)(offsetof(NJS_POINT3, z))), R9.d[0]);
+                ee_sdl((op2.w[0] + (uint32_t)(7)), R10.d[0]);
+                ee_sdr((op2.w[0] + (uint32_t)(0)), R10.d[0]);
+                EE_SW((op2.w[0] + (uint32_t)(offsetof(NJS_POINT3, z))), R11.d[0]);
+            }
+#endif 
 
             dx = q3.x;
             dy = q3.y;
@@ -1251,6 +1496,7 @@ void _fmCnkCalcTang(MASK_WORK* fm)
        
         for ( ; i > 0; i--) 
         { 
+#ifndef TARGET_PC
             asm volatile
             ("
             .set noreorder
@@ -1266,13 +1512,28 @@ void _fmCnkCalcTang(MASK_WORK* fm)
                 sqc2       vf7,    0(%0)
             .set reorder
             " : : "r"(mat) : 
-            ); 
+            );
+#else
+            { /* asm2c */
+                ee_reg op0 = {{0}};
+                op0.sd[0] = (int32_t)(uintptr_t)(mat);
+                vu_upper(U_MUL, 15, 4, 0, 0, BC_W);
+                vu_mr32(15, 5, 4);
+                vu_mr32(15, 6, 5);
+                vu_mr32(15, 7, 6);
+                vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(48))), 4);
+                vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(32))), 5);
+                vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(16))), 6);
+                vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 7);
+            }
+#endif 
             
             njRotateX(mat, (int)(182.04445f * (tangx * tang->rate)) & 0xFFFF);
             njRotateY(mat, (int)(182.04445f * (tangy * tang->rate)) & 0xFFFF);
             
             calc_ofs = tang->id * vofs;
             
+#ifndef TARGET_PC
             asm volatile  
             ("
             .set noreorder
@@ -1311,6 +1572,40 @@ void _fmCnkCalcTang(MASK_WORK* fm)
             .set reorder
             " : : "r"(&svp[calc_ofs]), "r"(&dvp[calc_ofs]), "f"(tangz), "r"(mat) : 
             );
+#else
+            { /* asm2c */
+                ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}};
+                ee_reg op0 = {{0}};
+                ee_reg op1 = {{0}};
+                ee_reg op2 = {{0}};
+                ee_reg op3 = {{0}};
+                op0.sd[0] = (int32_t)(uintptr_t)(&svp[calc_ofs]);
+                op1.sd[0] = (int32_t)(uintptr_t)(&dvp[calc_ofs]);
+                op2.f[0] = (float)(tangz);
+                op3.sd[0] = (int32_t)(uintptr_t)(mat);
+                R10.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+                R8.d[0] = ee_ldl(R8.d[0], (op0.w[0] + (uint32_t)(7)));
+                R8.d[0] = ee_ldr(R8.d[0], (op0.w[0] + (uint32_t)(0)));
+                R9.sd[0] = EE_LW((op0.w[0] + (uint32_t)(8)));
+                ee_pcpyld(&R8, &R9, &R8);
+                vu_load_vf(9, &R10);
+                vu_load_vf(4, &R8);
+                vu_load_vf(5, EE_PTR((op3.w[0] + (uint32_t)(0))));
+                vu_load_vf(6, EE_PTR((op3.w[0] + (uint32_t)(16))));
+                vu_load_vf(7, EE_PTR((op3.w[0] + (uint32_t)(32))));
+                vu_load_vf(8, EE_PTR((op3.w[0] + (uint32_t)(48))));
+                vu_upper(U_MUL, 14, 7, 7, 9, BC_X);
+                vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+                vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+                vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+                vu_upper(U_MADD, 14, 18, 8, 0, BC_W);
+                vu_store_vf(&R8, 18);
+                ee_pcpyud(&R9, &R8, &R8);
+                ee_sdl((op1.w[0] + (uint32_t)(7)), R8.d[0]);
+                ee_sdr((op1.w[0] + (uint32_t)(0)), R8.d[0]);
+                EE_SW((op1.w[0] + (uint32_t)(8)), R9.d[0]);
+            }
+#endif
             
             tang++; 
         }

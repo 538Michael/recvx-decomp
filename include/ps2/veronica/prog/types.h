@@ -2462,14 +2462,28 @@ typedef struct {
 #define DISP_WIDTH 640
 #define DISP_HEIGHT 480
 
+#ifndef TARGET_PC
 #define UNCACHED_BASE 0x20000000
 #define UNCACHED(x) ((u_int)(x)|UNCACHED_BASE)
+#else /* no uncached alias on the host: identity */
+#define UNCACHED_BASE 0
+#define UNCACHED(x) ((u_int)(x))
+#endif
 
 // TODO: include the following define from cpureg.h
+#ifndef TARGET_PC
 #define	SR_CU0		0x10000000	/* Coprocessor 0 usable */
+#else
+#define	SR_CU0		((uintptr_t)&ps2_regs.t0_count) /* really T0_COUNT; backed by the fake register file */
+#endif
 
+#ifndef TARGET_PC
 #define UNCMASK 0x0fffffff
 #define UNCBASE 0x20000000
+#else
+#define UNCMASK 0xffffffff
+#define UNCBASE 0
+#endif
 
 #define PP_NARG(...) \
     PP_NARG_(__VA_ARGS__, PP_RSEQ_N())

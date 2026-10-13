@@ -852,7 +852,14 @@ static void MapCodeProcess()
             break;
         }
         case 12:
+#ifndef TARGET_PC
             MapBoolSet(bhFlagCk(*ocP++, *ocP++, 0), mode & 0xF000);
+#else
+        {   /* MWCC evaluated arguments left to right; GCC/x86 does not */
+            int type = *ocP++, cnt = *ocP++;
+            MapBoolSet(bhFlagCk(type, cnt, 0), mode & 0xF000);
+        }
+#endif
             break;
         case 13:
             x = ocP[0] / 32.0f;
@@ -901,7 +908,14 @@ static void MapCodeProcess()
             ocP = &mwP->map_cdeP[*ocP];
             break;
         case 14:
+#ifndef TARGET_PC
             MapBoolSet(bhFlagSet(*ocP++, *ocP++, 0), mode & 0xF000);
+#else
+        {   /* MWCC evaluated arguments left to right; GCC/x86 does not */
+            int type = *ocP++, cnt = *ocP++;
+            MapBoolSet(bhFlagSet(type, cnt, 0), mode & 0xF000);
+        }
+#endif
             break;
         case 15:
             if (!(*stsP & 0x40))

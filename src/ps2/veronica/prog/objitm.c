@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/objitm.h"
 #include "../../../ps2/veronica/prog/MdlPut.h"
 #include "../../../ps2/veronica/prog/flag.h"
@@ -142,6 +145,15 @@ unsigned int ulDrawGeneralPurposeWater;
 
 extern void VU0_WAVE_INIT() __attribute__((section(".vutext")));
 extern void VU0_WAVE_CALC() __attribute__((section(".vutext")));
+
+
+#ifdef TARGET_PC
+/* third person: objects and items shown only in some cuts (flg 0x40000000, hide[] = the cuts)
+   are always drawn, as in the game's own first-person view (gm_flg 0x40) */
+#define PC_ALL_CUTS tps_cam_active
+#else
+#define PC_ALL_CUTS 0
+#endif
 
 // 100% matching! 
 void bhInitObjItm()
@@ -559,7 +571,7 @@ void bhDrawObjItm()
                 {
                     if (!(op->mdflg & 0x1)) 
                     {
-                        if (((!(op->flg & 0x40000000)) || ((sys->gm_flg & 0x40)) || ((cam.flg & 0x46))) || ((cam.ncut == op->hide[0]) || (cam.ncut == op->hide[1]) || (cam.ncut == op->hide[2]) || (cam.ncut == op->hide[3]))) 
+                        if (((!(op->flg & 0x40000000)) || ((sys->gm_flg & 0x40)) || PC_ALL_CUTS || ((cam.flg & 0x46))) || ((cam.ncut == op->hide[0]) || (cam.ncut == op->hide[1]) || (cam.ncut == op->hide[2]) || (cam.ncut == op->hide[3]))) 
                         {
                             if (((op->mdflg & 0x10)) && ((sys->st_flg & 0x2))) 
                             {
@@ -656,7 +668,7 @@ void bhDrawObject(O_WRK* op)
         return;
     }
     
-    if ((!(op->flg & 0x40000000)) || ((sys->gm_flg & 0x40)) || ((cam.flg & 0x46)) || ((cam.ncut == op->hide[0]) || (cam.ncut == op->hide[1]) || (cam.ncut == op->hide[2]) || (cam.ncut == op->hide[3])))
+    if ((!(op->flg & 0x40000000)) || ((sys->gm_flg & 0x40)) || PC_ALL_CUTS || ((cam.flg & 0x46)) || ((cam.ncut == op->hide[0]) || (cam.ncut == op->hide[1]) || (cam.ncut == op->hide[2]) || (cam.ncut == op->hide[3])))
     {
         if ((op->mdflg & 0x8)) 
         {
@@ -685,7 +697,7 @@ void bhDrawSpObject(O_WRK* op)
     LGT_WORK* lp;
     NJS_VECTOR vec;
 
-    if (!((!(op->flg & 0x40000000)) || ((sys->gm_flg & 0x40)) || ((cam.flg & 0x46)) || ((cam.ncut == op->hide[0]) || (cam.ncut == op->hide[1]) || (cam.ncut == op->hide[2]) || (cam.ncut == op->hide[3]))))
+    if (!((!(op->flg & 0x40000000)) || ((sys->gm_flg & 0x40)) || PC_ALL_CUTS || ((cam.flg & 0x46)) || ((cam.ncut == op->hide[0]) || (cam.ncut == op->hide[1]) || (cam.ncut == op->hide[2]) || (cam.ncut == op->hide[3]))))
     {
         return;
     }
@@ -1383,6 +1395,7 @@ void bhObj005(O_WRK* op)
         
         nb = op->ct2;
         
+#ifndef TARGET_PC
         asm volatile 
         ("
         .set noreorder
@@ -1469,8 +1482,74 @@ void bhObj005(O_WRK* op)
             addi       %2, %2, 64 
         .set reorder
         " : : "r"(nb), "r"(pCnk), "r"(pOrg), "r"(sys->gfrm_ct), "r"(xp), "r"(j), "r"(sys->wt_zp) : "$s2", "$s5", "memory" 
-        ); 
+        );
+#else
+        { /* asm2c */
+            ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}}, R12 = {{0}}, R13 = {{0}}, R14 = {{0}}, R15 = {{0}};
+            float F1 = 0.0f, F2 = 0.0f;
+            int ee_cond;
+            ee_reg op0 = {{0}};
+            ee_reg op1 = {{0}};
+            ee_reg op2 = {{0}};
+            ee_reg op5 = {{0}};
+            ee_reg op6 = {{0}};
+            op0.sd[0] = (int32_t)(uintptr_t)(nb);
+            op1.sd[0] = (int32_t)(uintptr_t)(pCnk);
+            op2.sd[0] = (int32_t)(uintptr_t)(pOrg);
+            op5.sd[0] = (int32_t)(uintptr_t)(j);
+            op6.sd[0] = (int32_t)(uintptr_t)(sys->wt_zp);
+            vu0_callms(VU0_ADDR_VU0_WAVE_INIT);
+            R8.sd[0] = (int32_t)(op0.w[0] >> 1);
+            R9.sd[0] = (int32_t)(op6.w[0] * (uint32_t)(4));
+            ee_cond = (op5.sd[0] != 0);
+            if (ee_cond) goto l_00285C50;
+            F1 = EE_LWF((op1.w[0] + (uint32_t)(4)));
+            R10.sd[0] = EE_LW((op1.w[0] + (uint32_t)(0)));
+            R8.sd[0] = (int32_t)(R8.w[0] + (uint32_t)(-1));
+            F2 = EE_LWF((R10.w[0] + (uint32_t)(0)));
+            op2.sd[0] = (int32_t)(op2.w[0] + (uint32_t)(32));
+            F1 = vu_clampf(F1 + F2);
+            op1.sd[0] = (int32_t)(op1.w[0] + (uint32_t)(32));
+            EE_SWF((op2.w[0] + (uint32_t)(-28)), F1);
+        l_00285C50:;
+            R10.sd[0] = EE_LW((op1.w[0] + (uint32_t)(0)));
+            op2.sd[0] = (int32_t)(op2.w[0] + (uint32_t)(16));
+            op1.sd[0] = (int32_t)(op1.w[0] + (uint32_t)(16));
+            R11.sd[0] = (int32_t)(R10.w[0] + (uint32_t)(-4));
+            R12.sd[0] = (int32_t)(R10.w[0] + R9.w[0]);
+            R13.sd[0] = (int32_t)(R10.w[0] + (uint32_t)(4));
+            R14.sd[0] = (int32_t)(R10.w[0] + -R9.w[0]);
+        l_00285C6C:;
+            R11.sd[0] = EE_LW((R11.w[0] + (uint32_t)(0)));
+            R12.sd[0] = EE_LW((R12.w[0] + (uint32_t)(0)));
+            R13.sd[0] = EE_LW((R13.w[0] + (uint32_t)(0)));
+            R14.sd[0] = EE_LW((R14.w[0] + (uint32_t)(0)));
+            vu_load_vf(6, &R11);
+            vu_load_vf(7, &R12);
+            vu_load_vf(8, &R13);
+            vu_load_vf(9, &R14);
+            vu0_callms(VU0_ADDR_VU0_WAVE_CALC);
+            R15.sd[0] = EE_LW((op1.w[0] + (uint32_t)(16)));
+            F1 = EE_LWF((op1.w[0] + (uint32_t)(20)));
+            R10.sd[0] = EE_LW((op1.w[0] + (uint32_t)(48)));
+            F2 = EE_LWF((R15.w[0] + (uint32_t)(0)));
+            R11.sd[0] = (int32_t)(R10.w[0] + (uint32_t)(-4));
+            R12.sd[0] = (int32_t)(R10.w[0] + R9.w[0]);
+            F1 = vu_clampf(F1 + F2);
+            R13.sd[0] = (int32_t)(R10.w[0] + (uint32_t)(4));
+            R14.sd[0] = (int32_t)(R10.w[0] + -R9.w[0]);
+            vu_upper(U_MUL, 14, 10, 10, 0, BC_Q);
+            R8.sd[0] = (int32_t)(R8.w[0] + (uint32_t)(-1));
+            EE_SWF((op2.w[0] + (uint32_t)(20)), F1);
+            op1.sd[0] = (int32_t)(op1.w[0] + (uint32_t)(64));
+            vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(0))), 10);
+            ee_cond = (R8.sd[0] != 0);
+            op2.sd[0] = (int32_t)(op2.w[0] + (uint32_t)(64));
+            if (ee_cond) goto l_00285C6C;
+        }
+#endif 
      
+#ifndef TARGET_PC
         asm volatile 
         (" 
             
@@ -1531,7 +1610,56 @@ void bhObj005(O_WRK* op)
             b          l_00285D6C
         
         " : : "r"(sys->wt_nbpt), "r"(sys->wt_wvp), "f"(0.2f) : "$t0", "$t1", "$t2", "memory" 
-        );  
+        );
+#else
+        { /* asm2c */
+            ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}};
+            int ee_cond;
+            ee_reg op0 = {{0}};
+            ee_reg op1 = {{0}};
+            ee_reg op2 = {{0}};
+            op0.sd[0] = (int32_t)(uintptr_t)(sys->wt_nbpt);
+            op1.sd[0] = (int32_t)(uintptr_t)(sys->wt_wvp);
+            op2.f[0] = (float)(0.2f);
+            R8.sd[0] = (int32_t)(op0.w[0] >> 2);
+            R9.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+            R10.sd[0] = (int32_t)(R8.w[0] >> 2);
+            vu_load_vf(4, &R9);
+            vu_load_vf(5, EE_PTR((op1.w[0] + (uint32_t)(0))));
+            vu_load_vf(6, EE_PTR((op1.w[0] + (uint32_t)(16))));
+        l_00285D1C:;
+            vu_load_vf(7, EE_PTR((op1.w[0] + (uint32_t)(32))));
+            vu_load_vf(8, EE_PTR((op1.w[0] + (uint32_t)(48))));
+            vu_upper(U_SUB, 15, 9, 5, 4, BC_X);
+            vu_upper(U_SUB, 15, 10, 6, 4, BC_X);
+            vu_upper(U_SUB, 15, 11, 7, 4, BC_X);
+            vu_upper(U_SUB, 15, 12, 8, 4, BC_X);
+            vu_upper(U_MAX, 15, 9, 9, 0, BC_X);
+            vu_upper(U_MAX, 15, 10, 10, 0, BC_X);
+            vu_upper(U_MAX, 15, 11, 11, 0, BC_X);
+            vu_upper(U_MAX, 15, 12, 12, 0, BC_X);
+            vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(0))), 9);
+            vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(16))), 10);
+            vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(32))), 11);
+            vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(48))), 12);
+            R10.sd[0] = (int32_t)(R10.w[0] + (uint32_t)(-1));
+            op1.sd[0] = (int32_t)(op1.w[0] + (uint32_t)(64));
+            vu_load_vf(5, EE_PTR((op1.w[0] + (uint32_t)(0))));
+            /* reorder mode, as assembled in the retail ELF: the vf6 reload is NOT in the
+               delay slot, so iterations 2+ reuse the first vf6 (original behaviour) */
+            if (R10.sd[0] != 0) goto l_00285D1C;
+            vu_load_vf(6, EE_PTR((op1.w[0] + (uint32_t)(16))));
+            R8.d[0] = R8.d[0] & (uint64_t)(uint16_t)(3);
+        l_00285D6C:;
+            if (R8.sd[0] != 0) goto exit;
+            R8.sd[0] = (int32_t)(R8.w[0] + (uint32_t)(-1));
+            vu_upper(U_SUB, 15, 9, 5, 4, BC_X);
+            op1.sd[0] = (int32_t)(op1.w[0] + (uint32_t)(16));
+            vu_upper(U_MAX, 15, 9, 9, 0, BC_X);
+            vu_load_vf(5, EE_PTR((op1.w[0] + (uint32_t)(0))));
+            goto l_00285D6C;
+        }
+#endif  
             
     exit:
         break;

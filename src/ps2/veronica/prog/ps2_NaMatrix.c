@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_NaMatrix.h"
 #include "../../../ps2/veronica/prog/ps2_NaFog.h"
 #include "../../../ps2/veronica/prog/ps2_NaView.h"
@@ -29,6 +32,7 @@ void	njInitMatrix(NJS_MATRIX *m, Sint32 n, Int flag)
     
     pi = 3.141592f;
     
+#ifndef TARGET_PC
     asm volatile 
     {
     .set noreorder
@@ -89,6 +93,49 @@ void	njInitMatrix(NJS_MATRIX *m, Sint32 n, Int flag)
     
     .set reorder
     }
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}}, R13 = {{0}};
+        uint64_t ee_prod;
+        ee_reg ee_lo = {{0}}, ee_hi = {{0}};
+        ee_reg ee_dummy;
+        const ee_reg ee_zero = {{0}};
+        ee_reg cv_pi = {{0}};
+        cv_pi.f[0] = pi;
+        vu_upper(U_ADD, 14, 1, 0, 0, BC_W);
+        vu_upper(U_MUL, 1, 1, 0, 0, BC_NONE);
+        R13.sd[0] = (int32_t)(R13.w[0] + -R13.w[0]);
+        R8.sd[0] = (int32_t)(R13.w[0] + (uint32_t)(128));
+        R9.sd[0] = (int32_t)(R13.w[0] + (uint32_t)(256));
+        ee_prod = (uint64_t)((int64_t)(int32_t)R9.w[0] * (int64_t)(int32_t)R9.w[0]);
+        ee_lo.sd[0] = (int32_t)(uint32_t)ee_prod; ee_hi.sd[0] = (int32_t)(uint32_t)(ee_prod >> 32);
+        ee_dummy.sd[0] = ee_lo.sd[0];
+        R10.d[0] = ee_lo.d[0];
+        R11.sd[0] = (int32_t)(ee_f2u(cv_pi.f[0]));
+        vu_load_vf(3, &R8);
+        vu_load_vf(9, &R9);
+        vu_load_vf(10, &R10);
+        vu_load_vf(11, &R11);
+        vu_upper(U_ITOF0, 15, 3, 3, 0, BC_NONE);
+        vu_upper(U_ITOF0, 15, 9, 9, 0, BC_NONE);
+        vu_upper(U_ITOF0, 15, 10, 10, 0, BC_NONE);
+        vu_upper(U_ADD, 4, 3, 0, 9, BC_X);
+        vu_upper(U_ADD, 2, 3, 0, 10, BC_X);
+        vu_upper(U_MUL, 1, 3, 0, 11, BC_X);
+        vu_upper(U_ADD, 15, 2, 0, 0, BC_W);
+        vu_div(0, 3, 2, 3);
+        vu_upper(U_ADD, 15, 2, 2, 0, BC_W);
+        vu_upper(U_ADD, 15, 2, 2, 0, BC_W);
+        vu_upper(U_ADD, 7, 2, 2, 0, BC_W);
+        vu_upper(U_ADD, 3, 2, 2, 0, BC_W);
+        vu_upper(U_MUL, 1, 2, 0, 0, BC_Q);
+        R8.sd[0] = (int32_t)(ee_zero.w[0] + (uint32_t)(4095));
+        vu_load_vf(4, &R8);
+        vu_upper(U_ITOF0, 14, 4, 4, 0, BC_NONE);
+        vu_upper(U_ADD, 2, 16, 0, 4, BC_X);
+        vu0_callms(VU0_ADDR_VU0_INIT_CALC_PROCESS);
+    }
+#endif
 }
 
 // 100% matching
@@ -99,6 +146,7 @@ void	njCalcPoints(NJS_MATRIX *m, NJS_POINT3 *ps, NJS_POINT3 *pd, Int num)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -153,6 +201,50 @@ void	njCalcPoints(NJS_MATRIX *m, NJS_POINT3 *ps, NJS_POINT3 *pd, Int num)
     .set reorder
     " : : "r"(m), "r"(ps), "r"(pd), "r"(&num) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R10 = {{0}}, R11 = {{0}}, R13 = {{0}}, R14 = {{0}};
+        int ee_cond;
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.sd[0] = (int32_t)(uintptr_t)(ps);
+        op2.sd[0] = (int32_t)(uintptr_t)(pd);
+        op3.sd[0] = (int32_t)(uintptr_t)(&num);
+        R8.sd[0] = EE_LW((op3.w[0] + (uint32_t)(0)));
+        R10.d[0] = ee_ldl(R10.d[0], (op1.w[0] + (uint32_t)(7)));
+        R10.d[0] = ee_ldr(R10.d[0], (op1.w[0] + (uint32_t)(0)));
+        R11.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+        ee_pcpyld(&R10, &R11, &R10);
+        vu_load_vf(4, &R10);
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_load_vf(8, EE_PTR((op0.w[0] + (uint32_t)(48))));
+    l_002D67C4:;
+        op1.sd[0] = (int32_t)(op1.w[0] + (uint32_t)(12));
+        vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+        vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+        vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+        vu_upper(U_MADD, 14, 18, 8, 0, BC_W);
+        R8.sd[0] = (int32_t)(R8.w[0] + (uint32_t)(-1));
+        R10.d[0] = ee_ldl(R10.d[0], (op1.w[0] + (uint32_t)(7)));
+        R10.d[0] = ee_ldr(R10.d[0], (op1.w[0] + (uint32_t)(0)));
+        R11.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+        ee_pcpyld(&R10, &R11, &R10);
+        vu_load_vf(4, &R10);
+        vu_store_vf(&R13, 18);
+        ee_pcpyud(&R14, &R13, &R13);
+        ee_sdl((op2.w[0] + (uint32_t)(7)), R13.d[0]);
+        ee_sdr((op2.w[0] + (uint32_t)(0)), R13.d[0]);
+        EE_SW((op2.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))), R14.d[0]);
+        op2.sd[0] = (int32_t)(op2.w[0] + (uint32_t)(12));
+        ee_cond = (R8.sd[0] > 0);
+        if (ee_cond) goto l_002D67C4;
+    }
+#endif
 }
 
 // 100% matching! 
@@ -163,6 +255,7 @@ void    njGetTranslation(NJS_MATRIX *m, NJS_POINT3 *p)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder
@@ -176,6 +269,21 @@ void    njGetTranslation(NJS_MATRIX *m, NJS_POINT3 *p)
     .set reorder
     " : : "r"(m), "r"(p) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.sd[0] = (int32_t)(uintptr_t)(p);
+        R8.sd[0] = EE_LW((op0.w[0] + (uint32_t)(48)));
+        R9.sd[0] = EE_LW((op0.w[0] + (uint32_t)(52)));
+        R10.sd[0] = EE_LW((op0.w[0] + (uint32_t)(56)));
+        EE_SW((op1.w[0] + (uint32_t)(offsetof(NJS_POINT3, x))), R8.d[0]);
+        EE_SW((op1.w[0] + (uint32_t)(offsetof(NJS_POINT3, y))), R9.d[0]);
+        EE_SW((op1.w[0] + (uint32_t)(offsetof(NJS_POINT3, z))), R10.d[0]);
+    }
+#endif
 }
 
 // 100% matching!
@@ -186,6 +294,7 @@ void    njUnitTransPortion(NJS_MATRIX *m)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder
@@ -193,6 +302,13 @@ void    njUnitTransPortion(NJS_MATRIX *m)
     .set reorder
     " : : "r"(m) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(48))), 0);
+    }
+#endif
 }
 
 // 100% matching! 
@@ -203,6 +319,7 @@ void    njUnitRotPortion(NJS_MATRIX *m)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile 
     ("
     .set noreorder
@@ -218,6 +335,19 @@ void    njUnitRotPortion(NJS_MATRIX *m)
     .set reorder
     " : : "r"(m) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        vu_upper(U_MUL, 15, 4, 0, 0, BC_W);
+        vu_mr32(15, 5, 4);
+        vu_mr32(15, 6, 5);
+        vu_mr32(15, 7, 6);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(32))), 5);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(16))), 6);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 7);
+    }
+#endif
 }
 
 // 100% matching!
@@ -256,6 +386,7 @@ Bool	njPushMatrix(NJS_MATRIX *m)
     
     fpDst = pNaMatMatrixStuckPtr;
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -271,6 +402,22 @@ Bool	njPushMatrix(NJS_MATRIX *m)
     .set reorder
     " : : "r"(fpSrc), "r"(fpDst) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(fpSrc);
+        op1.sd[0] = (int32_t)(uintptr_t)(fpDst);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(48))));
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(0))), 4);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(16))), 5);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(32))), 6);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(48))), 7);
+    }
+#endif
 
     return TRUE;
 }
@@ -302,6 +449,7 @@ void	njUnitMatrix(register NJS_MATRIX *m)
         m = pNaMatMatrixStuckPtr;
     }
     
+#ifndef TARGET_PC
     asm volatile 
     {
     .set noreorder
@@ -319,6 +467,20 @@ void	njUnitMatrix(register NJS_MATRIX *m)
         
     .set reorder
     }
+#else
+    { /* asm2c */
+        ee_reg cv_m = {{0}};
+        cv_m.sd[0] = (int32_t)(uintptr_t)(m);
+        vu_upper(U_MUL, 15, 4, 0, 0, BC_W);
+        vu_mr32(15, 5, 4);
+        vu_mr32(15, 6, 5);
+        vu_mr32(15, 7, 6);
+        vu_store_vf(EE_PTR((cv_m.w[0] + (uint32_t)(48))), 4);
+        vu_store_vf(EE_PTR((cv_m.w[0] + (uint32_t)(32))), 5);
+        vu_store_vf(EE_PTR((cv_m.w[0] + (uint32_t)(16))), 6);
+        vu_store_vf(EE_PTR((cv_m.w[0] + (uint32_t)(0))), 7);
+    }
+#endif
 }
 
 // 100% matching!
@@ -330,6 +492,7 @@ void	njSetMatrix(NJS_MATRIX *md, NJS_MATRIX *ms)
     fpSrc = ms;
     fpDst = md ? md : pNaMatMatrixStuckPtr;
 
+#ifndef TARGET_PC
     asm volatile 
     {
     .set noreorder
@@ -346,11 +509,28 @@ void	njSetMatrix(NJS_MATRIX *md, NJS_MATRIX *ms)
         
     .set reorder
     }
+#else
+    { /* asm2c */
+        ee_reg cv_fpDst = {{0}};
+        ee_reg cv_fpSrc = {{0}};
+        cv_fpDst.sd[0] = (int32_t)(uintptr_t)(fpDst);
+        cv_fpSrc.sd[0] = (int32_t)(uintptr_t)(fpSrc);
+        vu_load_vf(4, EE_PTR((cv_fpSrc.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((cv_fpSrc.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((cv_fpSrc.w[0] + (uint32_t)(32))));
+        vu_load_vf(7, EE_PTR((cv_fpSrc.w[0] + (uint32_t)(48))));
+        vu_store_vf(EE_PTR((cv_fpDst.w[0] + (uint32_t)(0))), 4);
+        vu_store_vf(EE_PTR((cv_fpDst.w[0] + (uint32_t)(16))), 5);
+        vu_store_vf(EE_PTR((cv_fpDst.w[0] + (uint32_t)(32))), 6);
+        vu_store_vf(EE_PTR((cv_fpDst.w[0] + (uint32_t)(48))), 7);
+    }
+#endif
 }
 
 // 100% matching!
 void njSetMatrixCN(NJS_MATRIX* pMat)
 {
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -361,6 +541,16 @@ void njSetMatrixCN(NJS_MATRIX* pMat)
     .set reorder 
     " : : "r"(pMat) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pMat);
+        vu_load_vf(28, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(29, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(30, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_load_vf(31, EE_PTR((op0.w[0] + (uint32_t)(48))));
+    }
+#endif
 }
 
 // 100% matching!
@@ -372,6 +562,7 @@ void	njGetMatrix(NJS_MATRIX *m)
     fpSrc = pNaMatMatrixStuckPtr;
     fpDst = m; 
     
+#ifndef TARGET_PC
     asm volatile 
     {
     .set noreorder
@@ -388,6 +579,22 @@ void	njGetMatrix(NJS_MATRIX *m)
         
     .set reorder
     }
+#else
+    { /* asm2c */
+        ee_reg cv_fpDst = {{0}};
+        ee_reg cv_fpSrc = {{0}};
+        cv_fpDst.sd[0] = (int32_t)(uintptr_t)(fpDst);
+        cv_fpSrc.sd[0] = (int32_t)(uintptr_t)(fpSrc);
+        vu_load_vf(4, EE_PTR((cv_fpSrc.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((cv_fpSrc.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((cv_fpSrc.w[0] + (uint32_t)(32))));
+        vu_load_vf(7, EE_PTR((cv_fpSrc.w[0] + (uint32_t)(48))));
+        vu_store_vf(EE_PTR((cv_fpDst.w[0] + (uint32_t)(0))), 4);
+        vu_store_vf(EE_PTR((cv_fpDst.w[0] + (uint32_t)(16))), 5);
+        vu_store_vf(EE_PTR((cv_fpDst.w[0] + (uint32_t)(32))), 6);
+        vu_store_vf(EE_PTR((cv_fpDst.w[0] + (uint32_t)(48))), 7);
+    }
+#endif
 }
 
 // 100% matching!
@@ -398,6 +605,7 @@ void	njMultiMatrix(NJS_MATRIX *md, NJS_MATRIX *ms)
         md = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -438,6 +646,39 @@ void	njMultiMatrix(NJS_MATRIX *md, NJS_MATRIX *ms)
     .set reorder
     " : : "r"(md), "r"(ms) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(md);
+        op1.sd[0] = (int32_t)(uintptr_t)(ms);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(48))));
+        vu_load_vf(8, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(9, EE_PTR((op1.w[0] + (uint32_t)(16))));
+        vu_load_vf(10, EE_PTR((op1.w[0] + (uint32_t)(32))));
+        vu_load_vf(11, EE_PTR((op1.w[0] + (uint32_t)(48))));
+        vu_upper(U_MULA, 14, 0, 4, 8, BC_X);
+        vu_upper(U_MADDA, 14, 0, 5, 8, BC_Y);
+        vu_upper(U_MADD, 14, 8, 6, 8, BC_Z);
+        vu_upper(U_MULA, 14, 0, 4, 9, BC_X);
+        vu_upper(U_MADDA, 14, 0, 5, 9, BC_Y);
+        vu_upper(U_MADD, 14, 9, 6, 9, BC_Z);
+        vu_upper(U_MULA, 14, 0, 4, 10, BC_X);
+        vu_upper(U_MADDA, 14, 0, 5, 10, BC_Y);
+        vu_upper(U_MADD, 14, 10, 6, 10, BC_Z);
+        vu_upper(U_MULA, 14, 0, 4, 11, BC_X);
+        vu_upper(U_MADDA, 14, 0, 5, 11, BC_Y);
+        vu_upper(U_MADDA, 14, 0, 6, 11, BC_Z);
+        vu_upper(U_MADD, 14, 11, 7, 0, BC_W);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 8);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(16))), 9);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(32))), 10);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(48))), 11);
+    }
+#endif
 }
 
 // 100% matching!
@@ -448,6 +689,7 @@ void	njTranslate(NJS_MATRIX *m, Float x, Float y, Float z)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -474,6 +716,34 @@ void	njTranslate(NJS_MATRIX *m, Float x, Float y, Float z)
     .set reorder
     " : : "r"(m), "f"(x), "f"(y), "f"(z) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.f[0] = (float)(x);
+        op2.f[0] = (float)(y);
+        op3.f[0] = (float)(z);
+        R8.sd[0] = (int32_t)(ee_f2u(op1.f[0]));
+        R9.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+        R10.sd[0] = (int32_t)(ee_f2u(op3.f[0]));
+        vu_load_vf(4, &R8);
+        vu_load_vf(5, &R9);
+        vu_load_vf(6, &R10);
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(8, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(9, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_load_vf(10, EE_PTR((op0.w[0] + (uint32_t)(48))));
+        vu_upper(U_MULA, 14, 0, 7, 4, BC_X);
+        vu_upper(U_MADDA, 14, 0, 8, 5, BC_X);
+        vu_upper(U_MADDA, 14, 0, 9, 6, BC_X);
+        vu_upper(U_MADD, 14, 11, 10, 0, BC_W);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(48))), 11);
+    }
+#endif
 }
 
 // 100% matching!
@@ -484,6 +754,7 @@ void	njTranslateV(NJS_MATRIX *m, NJS_VECTOR *v)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -511,6 +782,29 @@ void	njTranslateV(NJS_MATRIX *m, NJS_VECTOR *v)
     .set reorder
     " : : "r"(m), "r"(v) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.sd[0] = (int32_t)(uintptr_t)(v);
+        R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+        R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+        R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+        ee_pcpyld(&R8, &R9, &R8);
+        vu_load_vf(4, &R8);
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_load_vf(8, EE_PTR((op0.w[0] + (uint32_t)(48))));
+        vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+        vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+        vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+        vu_upper(U_MADD, 14, 9, 8, 0, BC_W);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(48))), 9);
+    }
+#endif
 }
 
 // 100% matching!
@@ -528,6 +822,7 @@ void	njRotateX(NJS_MATRIX *m, Angle ang)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -555,6 +850,32 @@ void	njRotateX(NJS_MATRIX *m, Angle ang)
     .set reorder
     " : : "r"(m), "f"(fSin), "f"(fCos) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R14 = {{0}}, R15 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.f[0] = (float)(fSin);
+        op2.f[0] = (float)(fCos);
+        R14.sd[0] = (int32_t)(ee_f2u(op1.f[0]));
+        R15.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+        vu_load_vf(11, &R14);
+        vu_load_vf(12, &R15);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_upper(U_SUB, 8, 10, 0, 11, BC_NONE);
+        vu_upper(U_MUL, 14, 6, 4, 12, BC_X);
+        vu_upper(U_MUL, 14, 7, 5, 11, BC_X);
+        vu_upper(U_MUL, 14, 4, 4, 10, BC_X);
+        vu_upper(U_MUL, 14, 5, 5, 12, BC_X);
+        vu_upper(U_ADD, 14, 8, 6, 7, BC_NONE);
+        vu_upper(U_ADD, 14, 9, 4, 5, BC_NONE);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(16))), 8);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(32))), 9);
+    }
+#endif
 }
 
 // 100% matching!
@@ -572,6 +893,7 @@ void	njRotateY(NJS_MATRIX *m, Angle ang)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -599,6 +921,32 @@ void	njRotateY(NJS_MATRIX *m, Angle ang)
     .set reorder
     " : : "r"(m), "f"(fSin), "f"(fCos) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R14 = {{0}}, R15 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.f[0] = (float)(fSin);
+        op2.f[0] = (float)(fCos);
+        R14.sd[0] = (int32_t)(ee_f2u(op1.f[0]));
+        R15.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+        vu_load_vf(11, &R14);
+        vu_load_vf(12, &R15);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_upper(U_SUB, 8, 10, 0, 11, BC_NONE);
+        vu_upper(U_MUL, 14, 6, 4, 12, BC_X);
+        vu_upper(U_MUL, 14, 7, 5, 10, BC_X);
+        vu_upper(U_MUL, 14, 4, 4, 11, BC_X);
+        vu_upper(U_MUL, 14, 5, 5, 12, BC_X);
+        vu_upper(U_ADD, 14, 8, 6, 7, BC_NONE);
+        vu_upper(U_ADD, 14, 9, 4, 5, BC_NONE);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 8);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(32))), 9);
+    }
+#endif
 }
 
 // 100% matching!
@@ -616,6 +964,7 @@ void	njRotateZ(NJS_MATRIX *m, Angle ang)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -643,6 +992,32 @@ void	njRotateZ(NJS_MATRIX *m, Angle ang)
     .set reorder
     " : : "r"(m), "f"(fSin), "f"(fCos) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R14 = {{0}}, R15 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.f[0] = (float)(fSin);
+        op2.f[0] = (float)(fCos);
+        R14.sd[0] = (int32_t)(ee_f2u(op1.f[0]));
+        R15.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+        vu_load_vf(11, &R14);
+        vu_load_vf(12, &R15);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_upper(U_SUB, 8, 10, 0, 11, BC_NONE);
+        vu_upper(U_MUL, 14, 6, 4, 12, BC_X);
+        vu_upper(U_MUL, 14, 7, 5, 11, BC_X);
+        vu_upper(U_MUL, 14, 4, 4, 10, BC_X);
+        vu_upper(U_MUL, 14, 5, 5, 12, BC_X);
+        vu_upper(U_ADD, 14, 8, 6, 7, BC_NONE);
+        vu_upper(U_ADD, 14, 9, 4, 5, BC_NONE);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 8);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(16))), 9);
+    }
+#endif
 }
 
 // 100% matching!
@@ -668,6 +1043,7 @@ void njRotXYZ(NJS_MATRIX* pMatrix, int lAngleX, int lAngleY, int lAngleZ)
     
     njSinCos(lAngleX, &fSin, &fCos);
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -687,11 +1063,28 @@ void njRotXYZ(NJS_MATRIX* pMatrix, int lAngleX, int lAngleY, int lAngleZ)
     .set reorder
     " : : "r"(pMatrix) :  
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pMatrix);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_upper(U_SUB, 8, 10, 0, 11, BC_NONE);
+        vu_upper(U_MUL, 14, 7, 5, 12, BC_X);
+        vu_upper(U_MUL, 14, 8, 6, 11, BC_X);
+        vu_upper(U_MUL, 14, 5, 5, 10, BC_X);
+        vu_upper(U_MUL, 14, 6, 6, 12, BC_X);
+        vu_upper(U_ADD, 14, 6, 5, 6, BC_NONE);
+        vu_upper(U_ADD, 14, 5, 7, 8, BC_NONE);
+    }
+#endif
 
     lAngleY &= 0xFFFF;
     
     njSinCos(lAngleY, &fSin, &fCos);
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -707,11 +1100,23 @@ void njRotXYZ(NJS_MATRIX* pMatrix, int lAngleX, int lAngleY, int lAngleZ)
     .set reorder
     " : : "r"(pMatrix) :  
     );
+#else
+    { /* asm2c */
+        vu_upper(U_SUB, 8, 10, 0, 11, BC_NONE);
+        vu_upper(U_MUL, 14, 7, 4, 12, BC_X);
+        vu_upper(U_MUL, 14, 8, 6, 10, BC_X);
+        vu_upper(U_MUL, 14, 4, 4, 11, BC_X);
+        vu_upper(U_MUL, 14, 6, 6, 12, BC_X);
+        vu_upper(U_ADD, 14, 6, 4, 6, BC_NONE);
+        vu_upper(U_ADD, 14, 4, 7, 8, BC_NONE);
+    }
+#endif
 
     lAngleZ &= 0xFFFF;
     
     njSinCos(lAngleZ, &fSin, &fCos);
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -731,6 +1136,22 @@ void njRotXYZ(NJS_MATRIX* pMatrix, int lAngleX, int lAngleY, int lAngleZ)
     .set reorder
     " : : "r"(pMatrix) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pMatrix);
+        vu_upper(U_SUB, 8, 10, 0, 11, BC_NONE);
+        vu_upper(U_MUL, 14, 7, 4, 12, BC_X);
+        vu_upper(U_MUL, 14, 8, 5, 11, BC_X);
+        vu_upper(U_MUL, 14, 4, 4, 10, BC_X);
+        vu_upper(U_MUL, 14, 5, 5, 12, BC_X);
+        vu_upper(U_ADD, 14, 8, 7, 8, BC_NONE);
+        vu_upper(U_ADD, 14, 9, 4, 5, BC_NONE);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 8);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(16))), 9);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(32))), 6);
+    }
+#endif
 }
 
 // 100% matching!
@@ -749,6 +1170,7 @@ void	njRotate(NJS_MATRIX *m, NJS_VECTOR *v, Angle ang)
     
     njSinCos(ang, &fSin, &fCos);
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -842,6 +1264,82 @@ void	njRotate(NJS_MATRIX *m, NJS_VECTOR *v, Angle ang)
     .set reorder
     " : : "r"(m), "r"(v), "f"(fSin), "f"(fCos) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R12 = {{0}}, R13 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.sd[0] = (int32_t)(uintptr_t)(v);
+        op2.f[0] = (float)(fSin);
+        op3.f[0] = (float)(fCos);
+        R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+        R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+        R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+        ee_pcpyld(&R8, &R9, &R8);
+        vu_load_vf(4, &R8);
+        vu_upper(U_MUL, 14, 5, 4, 4, BC_NONE);
+        vu_upper(U_ADD, 8, 5, 5, 5, BC_Y);
+        vu_upper(U_ADD, 8, 5, 5, 5, BC_Z);
+        vu_rsqrt(0, 3, 5, 0);
+        R12.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+        R13.sd[0] = (int32_t)(ee_f2u(op3.f[0]));
+        vu_load_vf(11, &R12);
+        vu_load_vf(12, &R13);
+        vu_upper(U_MUL, 8, 11, 11, 0, BC_Q);
+        vu_upper(U_MUL, 14, 4, 4, 11, BC_X);
+        vu_upper(U_MUL, 8, 5, 12, 12, BC_NONE);
+        vu_upper(U_ADD, 6, 5, 0, 5, BC_X);
+        vu_upper(U_MUL, 14, 6, 4, 4, BC_X);
+        vu_upper(U_MUL, 14, 7, 4, 4, BC_Y);
+        vu_upper(U_MUL, 14, 8, 4, 4, BC_Z);
+        vu_upper(U_MUL, 14, 9, 4, 12, BC_X);
+        vu_upper(U_ADD, 8, 11, 5, 6, BC_NONE);
+        vu_upper(U_SUB, 8, 11, 11, 7, BC_Y);
+        vu_upper(U_SUB, 8, 11, 11, 8, BC_Z);
+        vu_upper(U_SUB, 8, 12, 7, 9, BC_Z);
+        vu_upper(U_ADD, 8, 12, 12, 12, BC_NONE);
+        vu_upper(U_ADD, 8, 13, 8, 9, BC_Y);
+        vu_upper(U_ADD, 8, 13, 13, 13, BC_NONE);
+        vu_upper(U_ADD, 4, 11, 6, 9, BC_Z);
+        vu_upper(U_ADD, 4, 11, 11, 11, BC_NONE);
+        vu_upper(U_SUB, 4, 12, 5, 6, BC_X);
+        vu_upper(U_ADD, 4, 12, 12, 7, BC_NONE);
+        vu_upper(U_SUB, 4, 12, 12, 8, BC_Z);
+        vu_upper(U_SUB, 4, 13, 8, 9, BC_X);
+        vu_upper(U_ADD, 4, 13, 13, 13, BC_NONE);
+        vu_upper(U_SUB, 2, 11, 6, 9, BC_Y);
+        vu_upper(U_ADD, 2, 11, 11, 11, BC_NONE);
+        vu_upper(U_ADD, 2, 12, 7, 9, BC_X);
+        vu_upper(U_ADD, 2, 12, 12, 12, BC_NONE);
+        vu_upper(U_SUB, 2, 13, 5, 6, BC_X);
+        vu_upper(U_SUB, 2, 13, 13, 7, BC_Y);
+        vu_upper(U_ADD, 2, 13, 13, 8, BC_NONE);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_upper(U_MUL, 14, 7, 4, 11, BC_X);
+        vu_upper(U_MUL, 14, 10, 5, 11, BC_Y);
+        vu_upper(U_MUL, 14, 11, 6, 11, BC_Z);
+        vu_upper(U_ADD, 14, 7, 7, 10, BC_NONE);
+        vu_upper(U_ADD, 14, 7, 7, 11, BC_NONE);
+        vu_upper(U_MUL, 14, 8, 4, 12, BC_X);
+        vu_upper(U_MUL, 14, 10, 5, 12, BC_Y);
+        vu_upper(U_MUL, 14, 12, 6, 12, BC_Z);
+        vu_upper(U_ADD, 14, 8, 8, 10, BC_NONE);
+        vu_upper(U_ADD, 14, 8, 8, 12, BC_NONE);
+        vu_upper(U_MUL, 14, 9, 4, 13, BC_X);
+        vu_upper(U_MUL, 14, 10, 5, 13, BC_Y);
+        vu_upper(U_MUL, 14, 13, 6, 13, BC_Z);
+        vu_upper(U_ADD, 14, 9, 9, 10, BC_NONE);
+        vu_upper(U_ADD, 14, 9, 9, 13, BC_NONE);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 7);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(16))), 8);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(32))), 9);
+    }
+#endif
 }
 
 // 100% matching!
@@ -852,6 +1350,7 @@ void	njScale(NJS_MATRIX *m, Float sx, Float sy, Float sz)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -877,6 +1376,34 @@ void	njScale(NJS_MATRIX *m, Float sx, Float sy, Float sz)
     .set reorder
     " : : "r"(m), "f"(sx), "f"(sy), "f"(sz) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R10 = {{0}}, R11 = {{0}}, R12 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        ee_reg op3 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.f[0] = (float)(sx);
+        op2.f[0] = (float)(sy);
+        op3.f[0] = (float)(sz);
+        R10.sd[0] = (int32_t)(ee_f2u(op1.f[0]));
+        R11.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+        R12.sd[0] = (int32_t)(ee_f2u(op3.f[0]));
+        vu_load_vf(4, &R10);
+        vu_load_vf(5, &R11);
+        vu_load_vf(6, &R12);
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(8, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(9, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_upper(U_MUL, 14, 7, 7, 4, BC_X);
+        vu_upper(U_MUL, 14, 8, 8, 5, BC_X);
+        vu_upper(U_MUL, 14, 9, 9, 6, BC_X);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 7);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(16))), 8);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(32))), 9);
+    }
+#endif
 }
 
 // 100% matching!
@@ -887,6 +1414,7 @@ void	njScaleV(NJS_MATRIX *m, NJS_VECTOR *v)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -913,6 +1441,29 @@ void	njScaleV(NJS_MATRIX *m, NJS_VECTOR *v)
     .set reorder
     " : : "r"(m), "r"(v) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.sd[0] = (int32_t)(uintptr_t)(v);
+        R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+        R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+        R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+        ee_pcpyld(&R8, &R9, &R8);
+        vu_load_vf(4, &R8);
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_upper(U_MUL, 14, 5, 5, 4, BC_X);
+        vu_upper(U_MUL, 14, 6, 6, 4, BC_Y);
+        vu_upper(U_MUL, 14, 7, 7, 4, BC_Z);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 5);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(16))), 6);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(32))), 7);
+    }
+#endif
 }
 
 // 100% matching!
@@ -923,6 +1474,7 @@ Bool	njInvertMatrix(NJS_MATRIX *m)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -967,6 +1519,39 @@ Bool	njInvertMatrix(NJS_MATRIX *m)
     .set reorder
     " : : "r"(m) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}}, R12 = {{0}}, R13 = {{0}}, R14 = {{0}}, R15 = {{0}};
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        ee_lq(&R8, (op0.w[0] + (uint32_t)(0)));
+        ee_lq(&R9, (op0.w[0] + (uint32_t)(16)));
+        ee_lq(&R10, (op0.w[0] + (uint32_t)(32)));
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(48))));
+        vu_move(15, 5, 4);
+        vu_upper(U_SUB, 14, 4, 4, 4, BC_NONE);
+        vu_move(15, 10, 4);
+        vu_store_vf(&R11, 4);
+        ee_pextlw(&R12, &R9, &R8);
+        ee_pextuw(&R13, &R9, &R8);
+        ee_pextlw(&R14, &R11, &R10);
+        ee_pextuw(&R15, &R11, &R10);
+        ee_pcpyld(&R8, &R14, &R12);
+        ee_pcpyud(&R9, &R12, &R14);
+        ee_pcpyld(&R10, &R15, &R13);
+        vu_load_vf(7, &R8);
+        vu_load_vf(8, &R9);
+        vu_load_vf(9, &R10);
+        vu_upper(U_MULA, 14, 0, 7, 5, BC_X);
+        vu_upper(U_MADDA, 14, 0, 8, 5, BC_Y);
+        vu_upper(U_MADD, 14, 4, 9, 5, BC_Z);
+        vu_upper(U_SUB, 14, 4, 10, 4, BC_NONE);
+        ee_sq((op0.w[0] + (uint32_t)(0)), &R8);
+        ee_sq((op0.w[0] + (uint32_t)(16)), &R9);
+        ee_sq((op0.w[0] + (uint32_t)(32)), &R10);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(48))), 4);
+    }
+#endif
 
     return TRUE;
 }
@@ -979,6 +1564,7 @@ void	njTransposeMatrix(NJS_MATRIX *m)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1004,6 +1590,27 @@ void	njTransposeMatrix(NJS_MATRIX *m)
     .set reorder
     " : : "r"(m) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_upper(U_ADD, 8, 7, 0, 4, BC_X);
+        vu_upper(U_ADD, 4, 7, 0, 5, BC_X);
+        vu_upper(U_ADD, 2, 7, 0, 6, BC_X);
+        vu_upper(U_ADD, 8, 8, 0, 4, BC_Y);
+        vu_upper(U_ADD, 4, 8, 0, 5, BC_Y);
+        vu_upper(U_ADD, 2, 8, 0, 6, BC_Y);
+        vu_upper(U_ADD, 8, 9, 0, 4, BC_Z);
+        vu_upper(U_ADD, 4, 9, 0, 5, BC_Z);
+        vu_upper(U_ADD, 2, 9, 0, 6, BC_Z);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 7);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(16))), 8);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(32))), 9);
+    }
+#endif
 }
 
 // 100% matching!
@@ -1024,6 +1631,7 @@ void	njMirror(NJS_MATRIX *m,NJS_PLANE *pl)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1233,6 +1841,35 @@ void	njMirror(NJS_MATRIX *m,NJS_PLANE *pl)
     .set reorder
     " : : "r"(pl), "f"(&mat), "r"(&lAngleX), "r"(&lAngleZ) : 
     );
+#else
+    { /* Hand-translated; verified against the retail ELF (0x2D7260). The decomp's block is
+         the original hand-written asm (register-allocated for the retail frame), so it
+         cannot be compiled as-is. Two latent bugs of the original are unreachable for real
+         mirror planes and not reproduced: d == 0 stores an identity matrix over the stack
+         and returns early; ny == nz == 0 leaves lAngleX/lAngleZ uninitialized. */
+        float nx = pl->vx, ny = pl->vy, nz = pl->vz;
+        float inv = vu_clampf(1.0f / sqrtf(fabsf(nx * nx + ny * ny + nz * nz)));
+        float d = -((nx * inv) * pl->px + (ny * inv) * pl->py + (nz * inv) * pl->pz);
+        float d2 = d + d;
+        /* angle scale: vf4.x = vf3.z * vf2.w = 65536 * 0.5, divided by vf3.w (pi) */
+        float scale = g_vu0.vf[3].f[2] * g_vu0.vf[2].f[3];
+        float pi = g_vu0.vf[3].f[3];
+
+        mat[12] = -(nx * d2);
+        mat[13] = -(ny * d2);
+        mat[14] = -(nz * d2);
+        mat[15] = 1.0f;
+
+        if (ny == 0.0f && nz == 0.0f) {
+            lAngleX = 0;
+            lAngleZ = nx > 0.0f ? 0xC000 : (nx < 0.0f ? 0x4000 : 0);
+        } else {
+            lAngleX = (int)(((float)njAtan2b(nz, ny) * scale) / pi);
+            /* the original takes sqrt(ny + nz); the squares it computes go unused */
+            lAngleZ = (int)(-(((float)njAtan2b(nx, sqrtf(fabsf(ny + nz))) * scale) / pi));
+        }
+    }
+#endif
 
     l_002D7450:
     njUnitRotPortion(&mat);
@@ -1256,6 +1893,7 @@ void	njCalcPoint(NJS_MATRIX *m, NJS_POINT3 *ps, NJS_POINT3 *pd)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1290,6 +1928,35 @@ void	njCalcPoint(NJS_MATRIX *m, NJS_POINT3 *ps, NJS_POINT3 *pd)
     .set reorder
     " : : "r"(m), "r"(ps), "r"(pd) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.sd[0] = (int32_t)(uintptr_t)(ps);
+        op2.sd[0] = (int32_t)(uintptr_t)(pd);
+        R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+        R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+        R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(8)));
+        ee_pcpyld(&R8, &R9, &R8);
+        vu_load_vf(4, &R8);
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_load_vf(8, EE_PTR((op0.w[0] + (uint32_t)(48))));
+        vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+        vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+        vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+        vu_upper(U_MADD, 14, 18, 8, 0, BC_W);
+        vu_store_vf(&R8, 18);
+        ee_pcpyud(&R9, &R8, &R8);
+        ee_sdl((op2.w[0] + (uint32_t)(7)), R8.d[0]);
+        ee_sdr((op2.w[0] + (uint32_t)(0)), R8.d[0]);
+        EE_SW((op2.w[0] + (uint32_t)(8)), R9.d[0]);
+    }
+#endif
 }
 
 // 100% matching!
@@ -1300,6 +1967,7 @@ void njCalcPoint4(NJS_MATRIX* pMatrix, NJS_POINT4* pSrcPoint, NJS_POINT4* pDstPo
         pMatrix = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1319,11 +1987,32 @@ void njCalcPoint4(NJS_MATRIX* pMatrix, NJS_POINT4* pSrcPoint, NJS_POINT4* pDstPo
     .set reorder
     " : : "r"(pMatrix), "r"(pSrcPoint), "r"(pDstPoint) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pMatrix);
+        op1.sd[0] = (int32_t)(uintptr_t)(pSrcPoint);
+        op2.sd[0] = (int32_t)(uintptr_t)(pDstPoint);
+        vu_load_vf(4, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_load_vf(8, EE_PTR((op0.w[0] + (uint32_t)(48))));
+        vu_upper(U_MULA, 14, 0, 5, 4, BC_X);
+        vu_upper(U_MADDA, 14, 0, 6, 4, BC_Y);
+        vu_upper(U_MADDA, 14, 0, 7, 4, BC_Z);
+        vu_upper(U_MADD, 14, 18, 8, 0, BC_W);
+        vu_store_vf(EE_PTR((op2.w[0] + (uint32_t)(0))), 18);
+    }
+#endif
 }
 
 // 100% matching!
 void njCalcPointCN(NJS_POINT3* pSrcPoint, NJS_POINT3* pDstPoint)
 {
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1354,11 +2043,35 @@ void njCalcPointCN(NJS_POINT3* pSrcPoint, NJS_POINT3* pDstPoint)
     .set reorder
     " : : "r"(pSrcPoint), "r"(pDstPoint) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pSrcPoint);
+        op1.sd[0] = (int32_t)(uintptr_t)(pDstPoint);
+        R10.d[0] = ee_ldl(R10.d[0], (op0.w[0] + (uint32_t)(7)));
+        R10.d[0] = ee_ldr(R10.d[0], (op0.w[0] + (uint32_t)(0)));
+        R11.sd[0] = EE_LW((op0.w[0] + (uint32_t)(8)));
+        ee_pcpyld(&R10, &R11, &R10);
+        vu_load_vf(4, &R10);
+        vu_upper(U_MULA, 14, 0, 28, 4, BC_X);
+        vu_upper(U_MADDA, 14, 0, 29, 4, BC_Y);
+        vu_upper(U_MADDA, 14, 0, 30, 4, BC_Z);
+        vu_upper(U_MADD, 14, 18, 31, 0, BC_W);
+        vu_store_vf(&R8, 18);
+        ee_pcpyud(&R9, &R8, &R8);
+        ee_sdl((op1.w[0] + (uint32_t)(7)), R8.d[0]);
+        ee_sdr((op1.w[0] + (uint32_t)(0)), R8.d[0]);
+        EE_SW((op1.w[0] + (uint32_t)(8)), R9.d[0]);
+    }
+#endif
 }
 
 // 100% matching!
 void	njAddVector(NJS_VECTOR *vd, NJS_VECTOR *vs)
 {
+#ifndef TARGET_PC
 	asm volatile
     ("
     .set noreorder
@@ -1380,11 +2093,33 @@ void	njAddVector(NJS_VECTOR *vd, NJS_VECTOR *vs)
     .set reorder
     " : : "r"(vd), "r"(vs) : 
     );
+#else
+	{ /* asm2c */
+	    float F8 = 0.0f, F9 = 0.0f, F10 = 0.0f, F11 = 0.0f, F12 = 0.0f, F13 = 0.0f;
+	    ee_reg op0 = {{0}};
+	    ee_reg op1 = {{0}};
+	    op0.sd[0] = (int32_t)(uintptr_t)(vd);
+	    op1.sd[0] = (int32_t)(uintptr_t)(vs);
+	    F8 = EE_LWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, x))));
+	    F9 = EE_LWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, y))));
+	    F10 = EE_LWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+	    F11 = EE_LWF((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, x))));
+	    F12 = EE_LWF((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, y))));
+	    F13 = EE_LWF((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+	    F8 = vu_clampf(F8 + F11);
+	    F9 = vu_clampf(F9 + F12);
+	    F10 = vu_clampf(F10 + F13);
+	    EE_SWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, x))), F8);
+	    EE_SWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, y))), F9);
+	    EE_SWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))), F10);
+	}
+#endif
 }
 
 // 100% matching!
 void	njSubVector(NJS_VECTOR *vd, NJS_VECTOR *vs)
 {
+#ifndef TARGET_PC
 	asm volatile
     ("
     .set noreorder
@@ -1406,6 +2141,27 @@ void	njSubVector(NJS_VECTOR *vd, NJS_VECTOR *vs)
     .set reorder
     " : : "r"(vd), "r"(vs) : 
     );
+#else
+	{ /* asm2c */
+	    float F8 = 0.0f, F9 = 0.0f, F10 = 0.0f, F11 = 0.0f, F12 = 0.0f, F13 = 0.0f;
+	    ee_reg op0 = {{0}};
+	    ee_reg op1 = {{0}};
+	    op0.sd[0] = (int32_t)(uintptr_t)(vd);
+	    op1.sd[0] = (int32_t)(uintptr_t)(vs);
+	    F8 = EE_LWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, x))));
+	    F9 = EE_LWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, y))));
+	    F10 = EE_LWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+	    F11 = EE_LWF((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, x))));
+	    F12 = EE_LWF((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, y))));
+	    F13 = EE_LWF((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+	    F8 = vu_clampf(F8 - F11);
+	    F9 = vu_clampf(F9 - F12);
+	    F10 = vu_clampf(F10 - F13);
+	    EE_SWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, x))), F8);
+	    EE_SWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, y))), F9);
+	    EE_SWF((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))), F10);
+	}
+#endif
 }
 
 // 100% matching!
@@ -1416,6 +2172,7 @@ void	njCalcVector(NJS_MATRIX *m, NJS_VECTOR *vs, NJS_VECTOR *vd)
         m = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1448,6 +2205,33 @@ void	njCalcVector(NJS_MATRIX *m, NJS_VECTOR *vs, NJS_VECTOR *vd)
     .set reorder
     " : : "r"(m), "r"(vs), "r"(vd) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(m);
+        op1.sd[0] = (int32_t)(uintptr_t)(vs);
+        op2.sd[0] = (int32_t)(uintptr_t)(vd);
+        R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+        R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+        R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(8)));
+        ee_pcpyld(&R8, &R9, &R8);
+        vu_load_vf(4, &R8);
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(8, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(9, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_upper(U_MULA, 14, 0, 7, 4, BC_X);
+        vu_upper(U_MADDA, 14, 0, 8, 4, BC_Y);
+        vu_upper(U_MADD, 14, 18, 9, 4, BC_Z);
+        vu_store_vf(&R8, 18);
+        ee_pcpyud(&R9, &R8, &R8);
+        ee_sdl((op2.w[0] + (uint32_t)(7)), R8.d[0]);
+        ee_sdr((op2.w[0] + (uint32_t)(0)), R8.d[0]);
+        EE_SW((op2.w[0] + (uint32_t)(8)), R9.d[0]);
+    }
+#endif
 }
 
 // 100% matching!
@@ -1455,6 +2239,7 @@ Float	njUnitVector(NJS_VECTOR *v)
 {
 	float ret;
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1494,6 +2279,34 @@ Float	njUnitVector(NJS_VECTOR *v)
     .set reorder
     " : "=r"(ret) : "r"(v) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R2 = {{0}}, R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.f[0] = (float)(ret);
+        op1.sd[0] = (int32_t)(uintptr_t)(v);
+        R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+        R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+        R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+        ee_pcpyld(&R8, &R9, &R8);
+        vu_load_vf(4, &R8);
+        vu_upper(U_MUL, 14, 5, 4, 4, BC_NONE);
+        vu_upper(U_ADD, 8, 5, 5, 5, BC_Y);
+        vu_upper(U_ADD, 8, 5, 5, 5, BC_Z);
+        vu_rsqrt(0, 3, 5, 0);
+        vu_upper(U_MUL, 14, 6, 4, 0, BC_Q);
+        vu_upper(U_MUL, 8, 7, 5, 0, BC_Q);
+        vu_store_vf(&R10, 6);
+        ee_pcpyud(&R11, &R10, &R10);
+        ee_sdl((op1.w[0] + (uint32_t)(7)), R10.d[0]);
+        ee_sdr((op1.w[0] + (uint32_t)(0)), R10.d[0]);
+        EE_SW((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))), R11.d[0]);
+        vu_store_vf(&R2, 7);
+        op0.f[0] = ee_u2f(R2.w[0]);
+        ret = op0.f[0];
+    }
+#endif
 
     return ret;
 }
@@ -1503,6 +2316,7 @@ Float	njScalor(NJS_VECTOR *v)
 {
 	float ret;
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1532,6 +2346,28 @@ Float	njScalor(NJS_VECTOR *v)
     .set reorder
     " : "=r"(ret) : "r"(v) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R2 = {{0}}, R8 = {{0}}, R9 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.f[0] = (float)(ret);
+        op1.sd[0] = (int32_t)(uintptr_t)(v);
+        R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+        R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+        R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+        ee_pcpyld(&R8, &R9, &R8);
+        vu_load_vf(4, &R8);
+        vu_upper(U_MUL, 14, 5, 4, 4, BC_NONE);
+        vu_upper(U_ADD, 8, 5, 5, 5, BC_Y);
+        vu_upper(U_ADD, 8, 5, 5, 5, BC_Z);
+        vu_sqrt(5, 0);
+        vu_upper(U_ADD, 8, 6, 0, 0, BC_Q);
+        vu_store_vf(&R2, 6);
+        op0.f[0] = ee_u2f(R2.w[0]);
+        ret = op0.f[0];
+    }
+#endif
 
     return ret;
 }
@@ -1541,6 +2377,7 @@ Float	njScalor2(NJS_VECTOR *v)
 {
 	float ret;
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1564,6 +2401,26 @@ Float	njScalor2(NJS_VECTOR *v)
     .set reorder
     " : "=r"(ret) : "r"(v) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R2 = {{0}}, R8 = {{0}}, R9 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.f[0] = (float)(ret);
+        op1.sd[0] = (int32_t)(uintptr_t)(v);
+        R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+        R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+        R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+        ee_pcpyld(&R8, &R9, &R8);
+        vu_load_vf(4, &R8);
+        vu_upper(U_MUL, 14, 5, 4, 4, BC_NONE);
+        vu_upper(U_ADD, 8, 5, 5, 5, BC_Y);
+        vu_upper(U_ADD, 8, 6, 5, 5, BC_Z);
+        vu_store_vf(&R2, 6);
+        op0.f[0] = ee_u2f(R2.w[0]);
+        ret = op0.f[0];
+    }
+#endif
 
     return ret;
 }
@@ -1582,6 +2439,7 @@ void	njProjectScreen(NJS_MATRIX *m, NJS_POINT3 *p3, NJS_POINT2 *p2)
     
     njCalcPointCN(p3, &Point);
     
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1617,6 +2475,33 @@ void	njProjectScreen(NJS_MATRIX *m, NJS_POINT3 *p3, NJS_POINT2 *p2)
     .set reorder
     " : : "r"(p2), "r"(&Point), "f"(_nj_screen_.dist) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(p2);
+        op1.sd[0] = (int32_t)(uintptr_t)(&Point);
+        op2.f[0] = (float)(_nj_screen_.dist);
+        R8.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+        vu_load_vf(4, &R8);
+        vu_div(4, 0, 18, 2);
+        R9.sd[0] = EE_LW((uint32_t)(uintptr_t)&fNaViwOffsetX);
+        R10.sd[0] = EE_LW((uint32_t)(uintptr_t)&fNaViwOffsetY);
+        vu_load_vf(5, &R9);
+        vu_load_vf(6, &R10);
+        vu_upper(U_ADD, 2, 8, 0, 0, BC_Q);
+        vu_upper(U_MUL, 12, 7, 18, 0, BC_Q);
+        vu_upper(U_ADD, 8, 8, 7, 5, BC_X);
+        vu_upper(U_ADD, 4, 8, 7, 6, BC_X);
+        vu_store_vf(&R8, 8);
+        ee_pcpyud(&R9, &R8, &R8);
+        ee_sdl((op0.w[0] + (uint32_t)(7)), R8.d[0]);
+        ee_sdr((op0.w[0] + (uint32_t)(0)), R8.d[0]);
+        EE_SW((op1.w[0] + (uint32_t)(8)), R9.d[0]);
+    }
+#endif
 }
 
 // 100% matching! 
@@ -1624,6 +2509,7 @@ Float	njOuterProduct(NJS_VECTOR *v1, NJS_VECTOR *v2, NJS_VECTOR *ov)
 {
 	float ret;
 
+#ifndef TARGET_PC
 	asm volatile
     ("
     .set noreorder
@@ -1672,6 +2558,44 @@ Float	njOuterProduct(NJS_VECTOR *v1, NJS_VECTOR *v2, NJS_VECTOR *ov)
     .set reorder
     " : "=r"(ret) : "r"(v1), "r"(v2), "r"(ov) : 
     );
+#else
+	{ /* asm2c */
+	    ee_reg R2 = {{0}}, R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+	    ee_reg op0 = {{0}};
+	    ee_reg op1 = {{0}};
+	    ee_reg op2 = {{0}};
+	    ee_reg op3 = {{0}};
+	    op0.f[0] = (float)(ret);
+	    op1.sd[0] = (int32_t)(uintptr_t)(v1);
+	    op2.sd[0] = (int32_t)(uintptr_t)(v2);
+	    op3.sd[0] = (int32_t)(uintptr_t)(ov);
+	    R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+	    R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+	    R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+	    R10.d[0] = ee_ldl(R10.d[0], (op2.w[0] + (uint32_t)(7)));
+	    R10.d[0] = ee_ldr(R10.d[0], (op2.w[0] + (uint32_t)(0)));
+	    R11.sd[0] = EE_LW((op2.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+	    ee_pcpyld(&R8, &R9, &R8);
+	    ee_pcpyld(&R10, &R11, &R10);
+	    vu_load_vf(4, &R8);
+	    vu_load_vf(5, &R10);
+	    vu_upper(U_OPMULA, 14, 0, 4, 5, BC_NONE);
+	    vu_upper(U_OPMSUB, 14, 6, 5, 4, BC_NONE);
+	    vu_upper(U_MUL, 14, 7, 6, 6, BC_NONE);
+	    vu_upper(U_ADD, 8, 7, 7, 7, BC_Y);
+	    vu_upper(U_ADD, 8, 7, 7, 7, BC_Z);
+	    vu_sqrt(7, 0);
+	    vu_store_vf(&R8, 6);
+	    ee_pcpyud(&R9, &R8, &R8);
+	    ee_sdl((op3.w[0] + (uint32_t)(7)), R8.d[0]);
+	    ee_sdr((op3.w[0] + (uint32_t)(0)), R8.d[0]);
+	    EE_SW((op3.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))), R9.d[0]);
+	    vu_upper(U_ADD, 8, 8, 0, 0, BC_Q);
+	    vu_store_vf(&R2, 8);
+	    op0.f[0] = ee_u2f(R2.w[0]);
+	    ret = op0.f[0];
+	}
+#endif
 
     return ret;
 }
@@ -1681,6 +2605,7 @@ Float	njInnerProduct(NJS_VECTOR *v1, NJS_VECTOR *v2)
 {
 	float ret;
 
+#ifndef TARGET_PC
 	asm volatile
     ("
     .set noreorder
@@ -1711,6 +2636,33 @@ Float	njInnerProduct(NJS_VECTOR *v1, NJS_VECTOR *v2)
     .set reorder
     " : "=r"(ret) : "r"(v1), "r"(v2) : 
     );
+#else
+	{ /* asm2c */
+	    ee_reg R2 = {{0}}, R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+	    ee_reg op0 = {{0}};
+	    ee_reg op1 = {{0}};
+	    ee_reg op2 = {{0}};
+	    op0.f[0] = (float)(ret);
+	    op1.sd[0] = (int32_t)(uintptr_t)(v1);
+	    op2.sd[0] = (int32_t)(uintptr_t)(v2);
+	    R8.d[0] = ee_ldl(R8.d[0], (op1.w[0] + (uint32_t)(7)));
+	    R8.d[0] = ee_ldr(R8.d[0], (op1.w[0] + (uint32_t)(0)));
+	    R9.sd[0] = EE_LW((op1.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+	    R10.d[0] = ee_ldl(R10.d[0], (op2.w[0] + (uint32_t)(7)));
+	    R10.d[0] = ee_ldr(R10.d[0], (op2.w[0] + (uint32_t)(0)));
+	    R11.sd[0] = EE_LW((op2.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+	    ee_pcpyld(&R8, &R9, &R8);
+	    ee_pcpyld(&R10, &R11, &R10);
+	    vu_load_vf(4, &R8);
+	    vu_load_vf(5, &R10);
+	    vu_upper(U_MUL, 14, 6, 4, 5, BC_NONE);
+	    vu_upper(U_ADD, 8, 6, 6, 6, BC_Y);
+	    vu_upper(U_ADD, 8, 14, 6, 6, BC_Z);
+	    vu_store_vf(&R2, 14);
+	    op0.f[0] = ee_u2f(R2.w[0]);
+	    ret = op0.f[0];
+	}
+#endif
 
     return ret;
 }
@@ -1718,6 +2670,7 @@ Float	njInnerProduct(NJS_VECTOR *v1, NJS_VECTOR *v2)
 // 100% matching! 
 void njTranslateEx(NJS_VECTOR *v)
 {
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1745,6 +2698,29 @@ void njTranslateEx(NJS_VECTOR *v)
     .set reorder
     " : : "r"(v), "r"(pNaMatMatrixStuckPtr) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(v);
+        op1.sd[0] = (int32_t)(uintptr_t)(pNaMatMatrixStuckPtr);
+        R8.d[0] = ee_ldl(R8.d[0], (op0.w[0] + (uint32_t)(7)));
+        R8.d[0] = ee_ldr(R8.d[0], (op0.w[0] + (uint32_t)(0)));
+        R9.sd[0] = EE_LW((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+        ee_pcpyld(&R8, &R9, &R8);
+        vu_load_vf(4, &R8);
+        vu_load_vf(28, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(29, EE_PTR((op1.w[0] + (uint32_t)(16))));
+        vu_load_vf(30, EE_PTR((op1.w[0] + (uint32_t)(32))));
+        vu_load_vf(31, EE_PTR((op1.w[0] + (uint32_t)(48))));
+        vu_upper(U_MULA, 14, 0, 28, 4, BC_X);
+        vu_upper(U_MADDA, 14, 0, 29, 4, BC_Y);
+        vu_upper(U_MADDA, 14, 0, 30, 4, BC_Z);
+        vu_upper(U_MADD, 14, 31, 31, 0, BC_W);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(48))), 31);
+    }
+#endif
 }
 
 // 100% matching! 
@@ -1767,6 +2743,7 @@ void njRotateEx( Angle *ang, Sint32 lv )
 // 100% matching! 
 void njScaleEx(NJS_VECTOR *v)
 {
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1793,6 +2770,29 @@ void njScaleEx(NJS_VECTOR *v)
     .set reorder
     " : : "r"(v), "r"(pNaMatMatrixStuckPtr) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(v);
+        op1.sd[0] = (int32_t)(uintptr_t)(pNaMatMatrixStuckPtr);
+        vu_load_vf(28, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(29, EE_PTR((op1.w[0] + (uint32_t)(16))));
+        vu_load_vf(30, EE_PTR((op1.w[0] + (uint32_t)(32))));
+        R8.d[0] = ee_ldl(R8.d[0], (op0.w[0] + (uint32_t)(7)));
+        R8.d[0] = ee_ldr(R8.d[0], (op0.w[0] + (uint32_t)(0)));
+        R9.sd[0] = EE_LW((op0.w[0] + (uint32_t)(offsetof(NJS_VECTOR, z))));
+        ee_pcpyld(&R8, &R9, &R8);
+        vu_load_vf(4, &R8);
+        vu_upper(U_MUL, 15, 28, 28, 4, BC_X);
+        vu_upper(U_MUL, 15, 29, 29, 4, BC_Y);
+        vu_upper(U_MUL, 15, 30, 30, 4, BC_Z);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(0))), 28);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(16))), 29);
+        vu_store_vf(EE_PTR((op1.w[0] + (uint32_t)(32))), 30);
+    }
+#endif
 }
 
 // 100% matching!
@@ -1814,6 +2814,7 @@ void njRotTransPers(NJS_POINT3* pPoint, NJS_SCRVECTOR* pScreen)
 
     njCalcPointCN(pPoint, (NJS_POINT3*)&pScreen->x);
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1850,6 +2851,32 @@ void njRotTransPers(NJS_POINT3* pPoint, NJS_SCRVECTOR* pScreen)
     .set reorder
     " : : "r"(pPoint), "r"(pScreen), "f"(_nj_screen_.dist) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+        ee_reg op1 = {{0}};
+        ee_reg op2 = {{0}};
+        op1.sd[0] = (int32_t)(uintptr_t)(pScreen);
+        op2.f[0] = (float)(_nj_screen_.dist);
+        vu_div(0, 3, 18, 2);
+        R8.sd[0] = (int32_t)(ee_f2u(op2.f[0]));
+        R9.sd[0] = EE_LW((uint32_t)(uintptr_t)&fNaViwOffsetX);
+        R10.sd[0] = EE_LW((uint32_t)(uintptr_t)&fNaViwOffsetY);
+        vu_load_vf(4, &R8);
+        vu_load_vf(5, &R9);
+        vu_load_vf(6, &R10);
+        vu_upper(U_MUL, 8, 8, 4, 0, BC_Q);
+        vu_upper(U_ADD, 2, 14, 0, 0, BC_Q);
+        vu_upper(U_MUL, 12, 8, 18, 8, BC_X);
+        vu_upper(U_ADD, 8, 14, 8, 5, BC_X);
+        vu_upper(U_ADD, 4, 14, 8, 6, BC_X);
+        vu_store_vf(&R10, 14);
+        ee_pcpyud(&R11, &R10, &R10);
+        ee_sdl((op1.w[0] + (uint32_t)(7)), R10.d[0]);
+        ee_sdr((op1.w[0] + (uint32_t)(0)), R10.d[0]);
+        EE_SW((op1.w[0] + (uint32_t)(offsetof(NJS_SCRVECTOR, iz))), R11.d[0]);
+    }
+#endif
 
     pScreen->fog = njCalcFogPower(pScreen->z);
 }
@@ -1865,6 +2892,7 @@ void njRotTrans(NJS_POINT3* pPoint, NJS_POINT3* pOut)
 // 100% matching!
 void njPers(NJS_SCRVECTOR* pScreen)
 {
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1910,11 +2938,43 @@ void njPers(NJS_SCRVECTOR* pScreen)
     .set reorder
     " : : "r"(pScreen), "f"(_nj_screen_.dist) : 
     );
+#else
+    { /* asm2c */
+        ee_reg R8 = {{0}}, R9 = {{0}}, R10 = {{0}}, R11 = {{0}};
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pScreen);
+        op1.f[0] = (float)(_nj_screen_.dist);
+        R8.d[0] = ee_ldl(R8.d[0], (op0.w[0] + (uint32_t)(7)));
+        R8.d[0] = ee_ldr(R8.d[0], (op0.w[0] + (uint32_t)(0)));
+        R9.sd[0] = EE_LW((op0.w[0] + (uint32_t)(8)));
+        ee_pcpyld(&R8, &R9, &R8);
+        vu_load_vf(18, &R8);
+        vu_div(0, 3, 18, 2);
+        R8.sd[0] = (int32_t)(ee_f2u(op1.f[0]));
+        R9.sd[0] = EE_LW((uint32_t)(uintptr_t)&fNaViwOffsetX);
+        R10.sd[0] = EE_LW((uint32_t)(uintptr_t)&fNaViwOffsetY);
+        vu_load_vf(4, &R8);
+        vu_load_vf(5, &R9);
+        vu_load_vf(6, &R10);
+        vu_upper(U_MUL, 8, 8, 4, 0, BC_Q);
+        vu_upper(U_ADD, 2, 14, 0, 0, BC_Q);
+        vu_upper(U_MUL, 12, 8, 18, 8, BC_X);
+        vu_upper(U_ADD, 8, 14, 8, 5, BC_X);
+        vu_upper(U_ADD, 4, 14, 8, 6, BC_X);
+        vu_store_vf(&R10, 14);
+        ee_pcpyud(&R11, &R10, &R10);
+        ee_sdl((op0.w[0] + (uint32_t)(7)), R10.d[0]);
+        ee_sdr((op0.w[0] + (uint32_t)(0)), R10.d[0]);
+        EE_SW((op0.w[0] + (uint32_t)(12)), R11.d[0]);
+    }
+#endif
 }
 
 // 100% matching!
 void njCopyMatrix(NJS_MATRIX* pDstMat, NJS_MATRIX* pSrcMat) 
 {
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1930,6 +2990,22 @@ void njCopyMatrix(NJS_MATRIX* pDstMat, NJS_MATRIX* pSrcMat)
     .set reorder
     " : : "r"(pDstMat), "r"(pSrcMat) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pDstMat);
+        op1.sd[0] = (int32_t)(uintptr_t)(pSrcMat);
+        vu_load_vf(4, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op1.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op1.w[0] + (uint32_t)(32))));
+        vu_load_vf(7, EE_PTR((op1.w[0] + (uint32_t)(48))));
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(0))), 4);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(16))), 5);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(32))), 6);
+        vu_store_vf(EE_PTR((op0.w[0] + (uint32_t)(48))), 7);
+    }
+#endif
 }
 
 // 100% matching!
@@ -1940,6 +3016,7 @@ void njMulMatrixCN(NJS_MATRIX* pSrcMat1, NJS_MATRIX* pSrcMat2)
         pSrcMat2 = pNaMatMatrixStuckPtr;
     }
 
+#ifndef TARGET_PC
     asm volatile
     ("
     .set noreorder
@@ -1975,4 +3052,33 @@ void njMulMatrixCN(NJS_MATRIX* pSrcMat1, NJS_MATRIX* pSrcMat2)
     .set reorder
     " : : "r"(pSrcMat1), "r"(pSrcMat2) : 
     );
+#else
+    { /* asm2c */
+        ee_reg op0 = {{0}};
+        ee_reg op1 = {{0}};
+        op0.sd[0] = (int32_t)(uintptr_t)(pSrcMat1);
+        op1.sd[0] = (int32_t)(uintptr_t)(pSrcMat2);
+        vu_load_vf(4, EE_PTR((op0.w[0] + (uint32_t)(0))));
+        vu_load_vf(5, EE_PTR((op0.w[0] + (uint32_t)(16))));
+        vu_load_vf(6, EE_PTR((op0.w[0] + (uint32_t)(32))));
+        vu_load_vf(7, EE_PTR((op0.w[0] + (uint32_t)(48))));
+        vu_load_vf(8, EE_PTR((op1.w[0] + (uint32_t)(0))));
+        vu_load_vf(9, EE_PTR((op1.w[0] + (uint32_t)(16))));
+        vu_load_vf(10, EE_PTR((op1.w[0] + (uint32_t)(32))));
+        vu_load_vf(11, EE_PTR((op1.w[0] + (uint32_t)(48))));
+        vu_upper(U_MULA, 15, 0, 4, 8, BC_X);
+        vu_upper(U_MADDA, 15, 0, 5, 8, BC_Y);
+        vu_upper(U_MADD, 15, 28, 6, 8, BC_Z);
+        vu_upper(U_MULA, 15, 0, 4, 9, BC_X);
+        vu_upper(U_MADDA, 15, 0, 5, 9, BC_Y);
+        vu_upper(U_MADD, 15, 29, 6, 9, BC_Z);
+        vu_upper(U_MULA, 15, 0, 4, 10, BC_X);
+        vu_upper(U_MADDA, 15, 0, 5, 10, BC_Y);
+        vu_upper(U_MADD, 15, 30, 6, 10, BC_Z);
+        vu_upper(U_MULA, 15, 0, 4, 11, BC_X);
+        vu_upper(U_MADDA, 15, 0, 5, 11, BC_Y);
+        vu_upper(U_MADDA, 15, 0, 6, 11, BC_Z);
+        vu_upper(U_MADD, 15, 31, 7, 0, BC_W);
+    }
+#endif
 }

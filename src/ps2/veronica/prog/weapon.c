@@ -427,7 +427,11 @@ short bhCheckBullet()
     
     bn = swork.pip[iw];
     
-    if ((((swork.pip[iw] >> 16) & 0x800)) || ((plp->at_flg & 0x40000000))) 
+    if ((((swork.pip[iw] >> 16) & 0x800)) || ((plp->at_flg & 0x40000000))
+#ifdef TARGET_PC
+        || pc_inf_ammo()   /* F2 cheat: the game's own unlimited-ammo path */
+#endif
+        ) 
     {
         bn = -1;
     }
@@ -445,7 +449,11 @@ int bhCountBullet()
 	
     bn = swork.pip[iw];
     
-    if ((((swork.pip[iw] >> 16) & 0x800)) || ((plp->at_flg & 0x40000000)))
+    if ((((swork.pip[iw] >> 16) & 0x800)) || ((plp->at_flg & 0x40000000))
+#ifdef TARGET_PC
+        || pc_inf_ammo()
+#endif
+        )
     {
         return 1;
     }

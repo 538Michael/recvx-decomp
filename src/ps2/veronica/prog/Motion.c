@@ -17,6 +17,55 @@ static const char NormalTbl[64] =
 };
 static const NJS_MKEY_A_MOD NullMka;
 
+#ifdef TARGET_PC
+/* bhGetFrameNum (as retail) returns the new motion's frame count for any frame >= 1, so a motion
+   change (bhEne_ChgMtn & co.) can start at frame frm_num, one past the last key, and that frame's
+   bhSetMotion reads one key past each array. Retail reads what follows: the next joint's keys,
+   which the PC reads alike, and after the last array the motion's table of key pointers, i.e.
+   load addresses. Those depend on where the binary puts the heap (another build blended
+   differently: docs/PORT.md "Determinism"), and the PS2's addresses are not known. During the
+   reads, an array whose read would come from that table is replaced by a copy that ends in its
+   first key (frame frm_num of a looping motion is its frame 0); everything else reads as retail. */
+typedef struct { void** slot[3]; void* orig[3]; int n; } PcKeyPatch;
+static unsigned char pc_keybuf[3][0x10000];
+
+static void pc_patch_key(PcKeyPatch* pp, MN_WORK* mnwP, void** slot, int size, int frm)
+{
+    unsigned char* keys = *slot;
+    unsigned char* tbl = (unsigned char*)mnwP->md2P;
+
+    if (keys == NULL || keys + (frm + 1) * size <= tbl || keys + frm * size >= tbl + mnwP->obj_num * sizeof(NJS_MDATA2_MOD))
+        return;
+    if (pp->n == 3 || (frm + 1) * size > (int)sizeof(pc_keybuf[0]))   /* ponytail: then retail's read */
+        return;
+    memcpy(pc_keybuf[pp->n], keys, frm * size);
+    memcpy(pc_keybuf[pp->n] + frm * size, keys, size);
+    pp->slot[pp->n] = slot;
+    pp->orig[pp->n] = keys;
+    *slot = pc_keybuf[pp->n++];
+}
+
+static void pc_patch_oob_keys(MN_WORK* mnwP, int frm_no, PcKeyPatch* pp)
+{
+    int frm = frm_no >> 16;
+    unsigned int i;
+
+    pp->n = 0;
+    if (frm < (int)mnwP->frm_num || mnwP->md2P == NULL) return;
+    for (i = 0; i < mnwP->obj_num; i++)
+    {
+        pc_patch_key(pp, mnwP, &mnwP->md2P[i].p[0], 12, frm);
+        pc_patch_key(pp, mnwP, &mnwP->md2P[i].p[1], 6, frm);
+    }
+    pc_patch_key(pp, mnwP, (void**)&mnwP->atrP, 2, frm);
+}
+
+static void pc_unpatch_oob_keys(PcKeyPatch* pp)
+{
+    while (pp->n > 0) { pp->n--; *pp->slot[pp->n] = pp->orig[pp->n]; }
+}
+#endif
+
 // 99.94% matching (matches on GC)
 int bhSetMotion(BH_PWORK* ewP, int add, int mode, void* datP) 
 {
@@ -29,6 +78,11 @@ int bhSetMotion(BH_PWORK* ewP, int add, int mode, void* datP)
     
     if (ewP->mnwP[ewP->mtn_no].datP != NULL)
     {
+#ifdef TARGET_PC
+        PcKeyPatch pc_patch;
+
+        pc_patch_oob_keys(&ewP->mnwP[ewP->mtn_no], ewP->frm_no, &pc_patch);
+#endif
         if ((mode & 0x20)) 
         {
             rate = (1.0f / ewP->hokan_count) - (0.000015258789f * ewP->hokan_rate);
@@ -75,6 +129,9 @@ int bhSetMotion(BH_PWORK* ewP, int add, int mode, void* datP)
         {
             ewP->mtn_attr = atrP[ewP->frm_no >> 16];
         }
+#ifdef TARGET_PC
+        pc_unpatch_oob_keys(&pc_patch);
+#endif
         
         frm_num = ewP->mnwP[ewP->mtn_no].frm_num << 16;
         
@@ -323,9 +380,16 @@ static void SetMtnNormalHokan(BH_PWORK* ewP, char* datP, int mode, float rate)
                 {
                     srcP = angP;
                     
+#ifndef TARGET_PC
                     *srcP = 32768 + *srcP++;
                     *srcP = 32768 - *srcP;
                     *srcP = 32768 + *++srcP;
+#else
+                    /* unsequenced in the original; retail: ang[0] += 32768, ang[1] = 32768 - ang[1], ang[2] += 32768 */
+                    srcP[0] = 32768 + srcP[0];
+                    srcP[1] = 32768 - srcP[1];
+                    srcP[2] = 32768 + srcP[2];
+#endif
                 }
                 
                 angP[0] += (int)(rate * (short)(mka_ang[0] - angP[0]));
@@ -544,9 +608,16 @@ static void SetMtnFastHokan(BH_PWORK* ewP, char* datP, int mode, float rate)
                 {
                     srcP = angP;
                     
+#ifndef TARGET_PC
                     *srcP = 32768 + *srcP++;
                     *srcP = 32768 - *srcP;
                     *srcP = 32768 + *++srcP;
+#else
+                    /* unsequenced in the original; retail: ang[0] += 32768, ang[1] = 32768 - ang[1], ang[2] += 32768 */
+                    srcP[0] = 32768 + srcP[0];
+                    srcP[1] = 32768 - srcP[1];
+                    srcP[2] = 32768 + srcP[2];
+#endif
                 }
                 
                 if (!(owP->flg & 0x8))
@@ -835,9 +906,16 @@ static void SetMtnSlowHokan(BH_PWORK* ewP, char* datP, int mode, float rate)
 
                     srcP = angP;
                     
+#ifndef TARGET_PC
                     *srcP = 32768 + *srcP++;
                     *srcP = 32768 - *srcP;
                     *srcP = 32768 + *++srcP;
+#else
+                    /* unsequenced in the original; retail: ang[0] += 32768, ang[1] = 32768 - ang[1], ang[2] += 32768 */
+                    srcP[0] = 32768 + srcP[0];
+                    srcP[1] = 32768 - srcP[1];
+                    srcP[2] = 32768 + srcP[2];
+#endif
                 }
                 
                 angP[0] += (int)(rate * (short)(mka_ang[0] - angP[0]));
@@ -942,12 +1020,23 @@ void bhGetObjMotion(BH_PWORK* ewP, int obj_no, float* pos, int* ang)
 
     md2P = &ewP->mnwP[ewP->mtn_no].md2P[*rutP];
     
+#ifdef TARGET_PC
+    {   /* the key copies stay valid after the pointers are put back */
+        PcKeyPatch pc_patch;
+
+        pc_patch_oob_keys(&ewP->mnwP[ewP->mtn_no], ewP->frm_no, &pc_patch);
+        mkfP = (NJS_MKEY_F_MOD*)md2P->p[0];
+        mkaP = (NJS_MKEY_A_MOD*)md2P->p[1];
+        pc_unpatch_oob_keys(&pc_patch);
+    }
+#else
     mkfP = (NJS_MKEY_F_MOD*)md2P->p[0];
-    mkaP = (NJS_MKEY_A_MOD*)md2P->p[1]; 
-    
-    if (mkaP != NULL) 
+    mkaP = (NJS_MKEY_A_MOD*)md2P->p[1];
+#endif
+
+    if (mkaP != NULL)
     {
-        mkaP += ewP->frm_no / 65536; 
+        mkaP += ewP->frm_no / 65536;
         mkfP += ewP->frm_no / 65536;
         
         pos[0] = mkfP->key[0] * f_flp;

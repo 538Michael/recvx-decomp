@@ -452,7 +452,11 @@ void SetStateSysLoadScreenNoSysFile(SYSLOAD_SCREEN* pSysLoad)
 // 100% matching!
 void ExecuteStateSysLoadScreenNoSysFile(SYSLOAD_SCREEN* pSysLoad)
 {
+#ifdef TARGET_PC
+    if ((Pad->press & 0x800) || pc_skip_intro())   /* option: no system file yet -> defaults, no prompt */
+#else
     if ((Pad->press & 0x800)) 
+#endif
     {
         pSysLoad->usExitFlag = 1;
         

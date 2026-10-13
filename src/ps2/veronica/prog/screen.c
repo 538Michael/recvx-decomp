@@ -96,6 +96,9 @@ void bhControlScreenFade()
 // 100% matching!
 void bhDrawScreenFade()
 {
+#ifdef TARGET_PC
+    if (!pc_overlay_begin(PC_OVL_FADE)) return;
+#endif
     NJS_POINT2COL p2c;
     NJS_POINT2 p[4];  
     NJS_COLOR col[4];  
@@ -135,6 +138,9 @@ void bhDrawScreenFade()
     
     njColorBlendingMode(0, 8);
     njColorBlendingMode(1, 6);
+#ifdef TARGET_PC
+    pc_overlay_end();
+#endif
 }
 
 // 100% matching!
@@ -185,6 +191,9 @@ void bhControlScreenSaver()
 // 100% matching!
 void bhDrawScreenSaver()
 {
+#ifdef TARGET_PC
+    if (!pc_overlay_begin(PC_OVL_FADE)) return;   /* idle dimming, pause darkening: the whole view */
+#endif
     NJS_POLYGON_VTX pol[4];
     unsigned int argb; 
     
@@ -217,6 +226,9 @@ void bhDrawScreenSaver()
     
     njColorBlendingMode(0, 8);
     njColorBlendingMode(1, 6);
+#ifdef TARGET_PC
+    pc_overlay_end();
+#endif
 }
 
 // 100% matching!
@@ -242,6 +254,9 @@ void bhControlCinesco()
 // 100% matching!
 void bhDrawCinesco()
 {
+#ifdef TARGET_PC
+    if (!pc_overlay_begin(PC_OVL_CINEMA)) return;
+#endif
     NJS_POINT2COL p2c;
     NJS_POINT2 p[4];  
     NJS_COLOR col[4];  
@@ -288,6 +303,9 @@ void bhDrawCinesco()
         njColorBlendingMode(0, 8);
         njColorBlendingMode(1, 6);
     }
+#ifdef TARGET_PC
+    pc_overlay_end();
+#endif
 }
 
 // 97.59% matching

@@ -1658,6 +1658,9 @@ int bhEne17_PlayerDGCheck(BH_PWORK* epw, BH_PWORK* pl)
         i++;
         j += 12;
     }
+#ifdef TARGET_PC
+    return 0;     /* retail: v0 = last npCollisionCheckCC() result (no hit) */
+#endif
 }
 
 // 100% matching!

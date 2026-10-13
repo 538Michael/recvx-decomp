@@ -2571,6 +2571,11 @@ void KazuSet(S_WORK* st, unsigned char flg)
     unsigned char max;
 
     itemid = 0;
+#ifdef TARGET_PC
+    /* num1/num2 are left unset for flg == 1 outside item-box mode (MWCC used stale
+       registers); start with an empty range there instead of garbage bounds. */
+    num1 = num2 = 0;
+#endif
     
     if ((sys->gm_flg & 0x8000000))
     { 
@@ -3740,6 +3745,10 @@ void GetItem(S_WORK* st)
     {
         sys->sb_id = 35;
     }
+#ifdef TARGET_PC
+    /* co-op: an item an event hands over without asking (its script set cb_flg 0x4000) */
+    int pc_given = coop_on && st->testmode == 0 && (sys->cb_flg & 0x4000) && !(sys->cb_flg & 0x1000000) && !(swork.statusflg & 0x100);
+#endif
     
     switch (st->testmode) 
     {                              
@@ -4159,6 +4168,12 @@ void GetItem(S_WORK* st)
         
         sys->cb_flg &= ~0x1000000;
     }
+#ifdef TARGET_PC
+    if (pc_given && (swork.statusflg & 0x100))
+    {
+        coop_item_granted(sys->sb_id);
+    }
+#endif
 }
 
 // 100% matching!
@@ -9974,6 +9989,9 @@ void DispFadeInit()
 // 100% matching!
 void FadePolyDisp() 
 {
+#ifdef TARGET_PC
+    if (!pc_overlay_begin(PC_OVL_FADE)) return;
+#endif
     FADE* sfe;        
     NJS_POINT2COL p2c; 
     NJS_POINT2 p[4];   
@@ -10031,6 +10049,9 @@ void FadePolyDisp()
     col[3].color = (unsigned int)sfe->alpha << 24;
     
     njDrawPolygon2D(&p2c, 4, -1.5f, 0x60);
+#ifdef TARGET_PC
+    pc_overlay_end();
+#endif
 }
 
 // 100% matching!

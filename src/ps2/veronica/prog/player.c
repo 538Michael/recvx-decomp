@@ -1415,6 +1415,12 @@ void bhControlPlayer()
         }
         
         bhCtrPly_mode0[plp->mode0]();
+#ifdef TARGET_PC
+        if (tps_on)
+        {
+            tps_player();
+        }
+#endif
         
         if ((plp->flg & 0x100000)) 
         {
@@ -1590,6 +1596,10 @@ void bhControlPlayer()
         expw->bpy = 12.5f + plp->py;
         expw->bpz = expw->fpz;
         
+#ifdef TARGET_PC
+        unsigned int noclip = pc_noclip() & plp->flg;   /* F2 cheat: no enemy/wall push (cheat_glue.c) */
+        plp->flg &= ~noclip;
+#endif
         if ((plp->flg & 0x8)) 
         {
             bhCheckEnemies(plp);
@@ -1653,6 +1663,15 @@ void bhControlPlayer()
                 ((EXP_WORK*)plp->exp0)->spz = expw->bpz;
             }
         }
+#ifdef TARGET_PC
+        if ((noclip & 0x10))   /* as the wall check with nothing hit */
+        {
+            expw->spx = expw->bpx;
+            expw->spy = plp->py;
+            expw->spz = expw->bpz;
+        }
+        plp->flg |= noclip;
+#endif
         
         if ((plp->flg & 0x200000)) 
         {
@@ -1685,6 +1704,13 @@ void bhControlPlayer()
             bhControlPlayerHead();
         }
         
+#ifdef TARGET_PC
+        if (tps_on)
+        {
+            tps_calc_model();   /* bhCalcModel with the free-aim pitch on the upper body */
+        }
+        else
+#endif
         bhCalcModel(plp);
         
         if (((plp->mode0 == 1) && (plp->mode1 == 1) && (plp->mode2 == 0x45) && (plp->mode3 == 1)) && ((WpnTab[plp->wpnr_no].flg & 0x40000000))) 
@@ -6214,6 +6240,18 @@ void bhCPM2_act_knf()
 void bhCPM0_damage()
 {
 	float* trsz;
+
+#ifdef TARGET_PC
+    /* damage levels are 0..2 (motions 71..76, translations 11..16). A Black Widow's grab writes
+       level 4/5 into mode2 while it holds the player (en03.c) and does not check that another
+       type's hit took the player over meanwhile (the PS2 never put them in one room): the
+       missing motion and translation crashed here. The heaviest level instead (3 levels: PlyTrsZ,
+       en29's dmg_mde < 3). */
+    if (plp->mode2 > 2)
+    {
+        plp->mode2 = 2;
+    }
+#endif
 
     sys->st_flg |= 0x4;
     

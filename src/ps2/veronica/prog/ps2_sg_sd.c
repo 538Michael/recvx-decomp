@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_sg_sd.h"  
 #include "../../../ps2/veronica/prog/ps2_MovieFunc.h"
 #include "../../../ps2/veronica/prog/ps2_sfd_mw.h"
@@ -45,6 +48,12 @@ static void* __snd_end_func_arg__;
 static int snd_data_down_load;
 int __sg_sd_snd_init__;
 char sound_flag;
+#ifdef TARGET_PC
+/* extra enemy banks (pc/src/audio/snd_iop.c, docs/ENEMIES.md 2.3): the bank sdfunc.c CallEnemySeMain picks
+   for the next sdShotPlay, kept per handle and sent in the request's port byte (bits 3..7; 0 = the port's) */
+int pc_se_xbank;
+static unsigned char pc_shot_xbank[40];
+#endif
 /* unused below */
 /*int AdxTInfoBack[10][4];
 unsigned int old_trans_size;
@@ -953,6 +962,9 @@ SDE_ERR	sdShotPlay( SDSHOT handle, const Sint8 bank_num, const Sint8 data_num, c
         req_se_info[bank_num] = 1 << (temp->channel_num & 0x7);
         
         temp->req = 1;
+#ifdef TARGET_PC
+        if (temp >= __snd_work__ && temp < __snd_work__ + 40) pc_shot_xbank[temp - __snd_work__] = (unsigned char)pc_se_xbank;
+#endif
         
         get_iop_snddata.se_info[temp->port_num] |= 1 << temp->channel_num;
         
@@ -1205,7 +1217,13 @@ static unsigned char Volume_Control(SND_WORK* set_snd_work)
 
             fade_vol /= set_snd_work->vol_set_time;
             
+#ifdef TARGET_PC
+            /* retail (0x2DC814) stores this into vol, the fade's target, and returns the caller's
+               stale $f20; the fade down's dvol is what was meant (docs/PORT.md "1:1 notes") */
+            dvol = set_snd_work->vol_old + (fade_vol * (set_snd_work->vol_set_time - set_snd_work->vol_timer));
+#else
             set_snd_work->vol = set_snd_work->vol_old + (fade_vol * (set_snd_work->vol_set_time - set_snd_work->vol_timer));
+#endif
 
             set_snd_work->vol_timer--;
         }
@@ -1700,7 +1718,11 @@ SDE_ERR	sdSysServer( Void)
         {
             if (chk_snd_work->req == 1) 
             {
+#ifdef TARGET_PC
+                SdrSeReq(chk_snd_work->channel_num | (((chk_snd_work->port_num | (chk_snd_work >= __snd_work__ && chk_snd_work < __snd_work__ + 40 ? pc_shot_xbank[chk_snd_work - __snd_work__] << 3 : 0)) << 16) | (chk_snd_work->bank_num << 8)), chk_snd_work->vol, chk_snd_work->pan, chk_snd_work->pitch);
+#else
                 SdrSeReq(chk_snd_work->channel_num | ((chk_snd_work->port_num << 16) | (chk_snd_work->bank_num << 8)), chk_snd_work->vol, chk_snd_work->pan, chk_snd_work->pitch);
+#endif
                 
                 get_iop_snddata.se_info[chk_snd_work->port_num] |= 1 << chk_snd_work->channel_num;
                
@@ -1988,9 +2010,25 @@ void CpEEWait(int val)
 {
     while (val-- > 0) 
     {
+#ifndef TARGET_PC
         asm("nop");
+#else
+        { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
         asm("nop");
+#else
+        { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
         asm("nop");
+#else
+        { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
         asm("nop");
+#else
+        { /* asm2c */ }
+#endif
     }
 }

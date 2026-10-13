@@ -290,9 +290,16 @@ static void SetOneObjectMotion(BH_PWORK* ewP, NJS_CNK_OBJECT* objP, int* ang)
             
             srcP = objP->ang;
             
+#ifndef TARGET_PC
             *srcP = 32768 + *srcP++;
             *srcP = 32768 - *srcP;
             *srcP = 32768 + *++srcP;
+#else
+            /* unsequenced in the original; retail: ang[0] += 32768, ang[1] = 32768 - ang[1], ang[2] += 32768 */
+            srcP[0] = 32768 + srcP[0];
+            srcP[1] = 32768 - srcP[1];
+            srcP[2] = 32768 + srcP[2];
+#endif
         }
         
         AngZyxToYzx(objP->ang, tmpS);

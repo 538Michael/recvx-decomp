@@ -1,6 +1,10 @@
 #include "../../../ps2/veronica/prog/ps2_sg_maloc.h"
 
+#ifdef TARGET_PC
+unsigned char Ps2_malloc_mem[13422592 + PC_ARENA_EXTRA + PC_VERTEX_EXTRA] __attribute__((aligned(64)));   /* PS2: 13422592, + the room arena's and vertex buffer's growth (pc_prelude.h) */
+#else
 unsigned char Ps2_malloc_mem[13422592] __attribute__((aligned(64)));
+#endif
 HM* Ps2_malloc_p;
 unsigned int __free_malloc_size;
 unsigned int __max_malloc_size;
@@ -94,11 +98,19 @@ Void syMallocInit(Void *heap, Uint32 size)
     Ps2_malloc_p = (HM*)&Ps2_malloc_mem;
     
     Ps2_malloc_p->Use_size = 0;
+#ifdef TARGET_PC
+    Ps2_malloc_p->Total_size = 13422528 + PC_ARENA_EXTRA + PC_VERTEX_EXTRA;
+#else
     Ps2_malloc_p->Total_size = 13422528;
+#endif
     
     Ps2_malloc_p->pNext_work = NULL;
     
+#ifdef TARGET_PC
+    __free_malloc_size = 13422528 + PC_ARENA_EXTRA + PC_VERTEX_EXTRA;
+#else
     __free_malloc_size = 13422528;
+#endif
 }
 
 // 100% matching!

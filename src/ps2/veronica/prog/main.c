@@ -31,7 +31,11 @@
 
 typedef void(*bhSysTaskJumpTab_proc)();
 
+#ifdef TARGET_PC
+NJS_TEXMEMLIST tbuf[PC_TEX_ENTRIES];   /* PS2: 256 (pc_prelude.h) */
+#else
 NJS_TEXMEMLIST tbuf[256];
+#endif
 NJS_VIEW view;
 HWS_WORK hwsp;
 SYS_WORK sysp;
@@ -133,6 +137,18 @@ void njUserInit(void)
     
     sys->ss_flg = 0x30000; 
    
+#ifdef TARGET_PC
+    /* the room arena grows by PC_ARENA_EXTRA (pc_prelude.h), the vertex work buffer at the top
+       (vwbmemp) by PC_VERTEX_EXTRA, to the 8192 entries njInit3D is given; the rest keep their sizes */
+    freemem = syMalloc(12845056 + PC_ARENA_EXTRA + PC_VERTEX_EXTRA); 
+    
+    njpmemp = freemem + (12255232 + PC_ARENA_EXTRA - hws->vtx_total); 
+    
+    Ps2_PXLCONV = njpmemp + 4294639616;
+    
+    vwbmemp = freemem + (12517376 + PC_ARENA_EXTRA - hws->vtx_total); 
+    vebmemp = freemem + (12845056 + PC_ARENA_EXTRA - hws->vtx_total); 
+#else
     freemem = syMalloc(12845056); 
     
     njpmemp = freemem + (12255232 - hws->vtx_total); 
@@ -141,6 +157,7 @@ void njUserInit(void)
     
     vwbmemp = freemem + (12517376 - hws->vtx_total); 
     vebmemp = freemem + (12845056 - hws->vtx_total); 
+#endif
     
     njInitTextureBuffer((signed char*)vwbmemp, 327680);
     
@@ -163,7 +180,11 @@ void njUserInit(void)
     
     npPlusInit(); 
     
+#ifdef TARGET_PC
+    njInitTexture(tbuf, PC_TEX_ENTRIES);
+#else
     njInitTexture(tbuf, 256); 
+#endif
     
     njSetPaletteMode(2); 
     

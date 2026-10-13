@@ -2827,6 +2827,9 @@ BH_PWORK* bhEne01_SetLinkEnemy(BH_PWORK* epw, int lkono, short id)
 	epp->mlwP = epw->mdl;
 	epp->mnwP = epw->mnwP;
 	epp->id = id;
+#ifdef TARGET_PC
+    return epp;   /* retail returns v0 = bhSetEnemy() */
+#endif
 }
 
 // 100% matching!

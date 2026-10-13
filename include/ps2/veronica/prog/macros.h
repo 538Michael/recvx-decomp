@@ -24,6 +24,12 @@
 #define	CheckCmdReq(vol, pan, pitch) (0x00|0|((vol)&1)|(((pan)&1)<<1)|(((pitch)&1)<<2))
 #define	CheckCmdChg(vol, pan, pitch) (0x00|8|((vol)&1)|(((pan)&1)<<1)|(((pitch)&1)<<2))
 
+/* MWCC cast-as-lvalue idioms; the PC build defines these in pc_prelude.h */
+#ifndef TARGET_PC
+#define PS2_POSTINC(T, X) (*((T*)(X))++)
+#define PS2_PTRADD(X, n) ((char*)(X) += (n))
+#endif
+
 #define SPR_ADDR(_val) ((0x70000000) | _val)
 
 #define JOIN_TAGS(_lo, _hi) ((_lo) | ((long)(_hi) << 0x20))
@@ -86,7 +92,9 @@
 
 #define MTN_NO_CHECK(epw) ((epw->mtn_no == 2) ? 0 : (epw->mtn_no == 3) ? 1 : 2) 
 
+#ifndef TARGET_PC
 #define PREFETCH(_v) asm("pref 0x0,0(%0)": : "r"(_v) : "memory")
+#endif
 
 #define SCE_GIF_PRIM(prim, iip, tme, fge, abe, aa1, fst, ctxt, fix) SCE_GIF_SET_TAG(0, 0, 0, SCE_GS_SET_PRIM(prim, iip, tme, fge, abe, aa1, fst, ctxt, fix), 0, 0)
 

@@ -1,3 +1,6 @@
+#ifdef TARGET_PC
+#include "ee_asm.h"
+#endif
 #include "../../../ps2/veronica/prog/ps2_sfd_mw.h"
 #include "../../../ps2/veronica/prog/ps2_MovieFunc.h"
 #include "../../../ps2/veronica/prog/ps2_NaSystem.h"
@@ -68,10 +71,26 @@ MWPLY ps2mwPlyCreateSofdec(MWS_PLY_CPRM_SFD* cprm, char* fname)
         {
             for (loop = 0; loop < 100000; loop++)
             {
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
                 asm("nop");
+#else
+                { /* asm2c */ }
+#endif
             }
         }
 
@@ -79,10 +98,26 @@ MWPLY ps2mwPlyCreateSofdec(MWS_PLY_CPRM_SFD* cprm, char* fname)
 
         for (loop = 0; loop < 100000; loop++)
         {
+#ifndef TARGET_PC
             asm("nop");
+#else
+            { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
             asm("nop");
+#else
+            { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
             asm("nop");
+#else
+            { /* asm2c */ }
+#endif
+#ifndef TARGET_PC
             asm("nop");
+#else
+            { /* asm2c */ }
+#endif
         }
     }
     
