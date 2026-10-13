@@ -152,7 +152,7 @@ JumpEnemy_proc bhJumpEnemy[100] =
 	bhSubpl
 };
 #ifdef TARGET_PC
-/* Helper code (docs/ENEMIES.md 2.2): the parts and children an enemy spawns get ids 31..38 and
+/* Helper code (docs/ENEMIES.md "Budgets on the PC"): the parts and children an enemy spawns get ids 31..38 and
    run whatever bhEne_SetCallFunc put in bhJumpEnemy[31..38] last - on the PS2 one function per
    id, so two types using them in one room ran each other's code. Here each child runs the
    function its own creator's type registered: the creator is the enemy whose code runs when

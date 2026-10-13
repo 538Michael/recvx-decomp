@@ -1618,7 +1618,7 @@ void Ps2AddOT(void* p, unsigned int num, float z, unsigned long prim)
 
 #ifdef TARGET_PC
     /* neither the list nor the packet buffer was bounds-checked: a full one drops the primitive
-       (translucent and sorted strips of a very large room, docs/MAPS.md 7) */
+       (translucent and sorted strips of a very large room, docs/modding/ROOM_FORMAT.md "Limits and budgets") */
     if ((Ps2_ot_list_no >= PC_OT_ENTRIES) || (((unsigned char*)Ps2_PP + 64 + (((num * 3) + 1) * 16)) > (unsigned char*)((int)&Ps2_PBUFF | 0x30000000) + PC_PBUFF_SIZE))
     {
         static int warned;

@@ -11,7 +11,7 @@
 #ifdef TARGET_PC
 /* room-model node i in a camera's hide list: a cut camera's list has 512 bits, the PS2 read the
    fields after it as hide bits of nodes 512 and up (random parts hidden); on the PC such nodes are
-   never hidden. Retail room models have at most 129 nodes (docs/MAPS.md 7). */
+   never hidden. Retail room models have at most 129 nodes (docs/modding/ROOM_FORMAT.md "Limits and budgets"). */
 #define HIDE_BIT(flg, i) (((i) < 512) && bhCkFlg(flg, i))
 #else
 #define HIDE_BIT(flg, i) bhCkFlg(flg, i)

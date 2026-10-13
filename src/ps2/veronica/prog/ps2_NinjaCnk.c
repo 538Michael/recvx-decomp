@@ -783,7 +783,7 @@ int njCnkDrawModelLocal(NJS_CNK_MODEL* pModel)
 
 #ifdef TARGET_PC
     /* index offset + count of the vertex chunk: past the vertex work buffer the PS2 wrote over
-       whatever followed it (docs/MAPS.md 7); such a node is not drawn */
+       whatever followed it (docs/modding/ROOM_FORMAT.md "Limits and budgets"); such a node is not drawn */
     pCnk = (CHUNK_HEAD*)pModel->vlist;
 
     if ((pCnk != NULL) && ((((unsigned short*)pCnk)[2] + ((unsigned short*)pCnk)[3]) > iNaCnkVerBufMax))

@@ -23,7 +23,7 @@ static const NJS_MKEY_A_MOD NullMka;
    bhSetMotion reads one key past each array. Retail reads what follows: the next joint's keys,
    which the PC reads alike, and after the last array the motion's table of key pointers, i.e.
    load addresses. Those depend on where the binary puts the heap (another build blended
-   differently: docs/PORT.md "Determinism"), and the PS2's addresses are not known. During the
+   differently: docs/ARCHITECTURE.md "Determinism"), and the PS2's addresses are not known. During the
    reads, an array whose read would come from that table is replaced by a copy that ends in its
    first key (frame frm_num of a looping motion is its frame 0); everything else reads as retail. */
 typedef struct { void** slot[3]; void* orig[3]; int n; } PcKeyPatch;

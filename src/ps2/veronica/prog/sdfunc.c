@@ -1728,7 +1728,7 @@ void CallDoorSe(unsigned int No)
 }
 
 #ifdef TARGET_PC
-/* Enemy sounds of types the room's bank 3 lacks (docs/ENEMIES.md 2.3): per request, the extra bank the
+/* Enemy sounds of types the room's bank 3 lacks (docs/ENEMIES.md "Sounds of added types"): per request, the extra bank the
    spawner loaded for the requesting enemy's type (spawn_glue.c; 0: the room's, -1: none, silence),
    used when the sound manager plays it (CallEnemySeMain) */
 static signed char pc_enemy_se_bank[128];

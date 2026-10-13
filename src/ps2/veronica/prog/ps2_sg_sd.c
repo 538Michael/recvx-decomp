@@ -49,7 +49,7 @@ static int snd_data_down_load;
 int __sg_sd_snd_init__;
 char sound_flag;
 #ifdef TARGET_PC
-/* extra enemy banks (pc/src/audio/snd_iop.c, docs/ENEMIES.md 2.3): the bank sdfunc.c CallEnemySeMain picks
+/* extra enemy banks (pc/src/audio/snd_iop.c, docs/ENEMIES.md "Sounds of added types"): the bank sdfunc.c CallEnemySeMain picks
    for the next sdShotPlay, kept per handle and sent in the request's port byte (bits 3..7; 0 = the port's) */
 int pc_se_xbank;
 static unsigned char pc_shot_xbank[40];
@@ -1219,7 +1219,7 @@ static unsigned char Volume_Control(SND_WORK* set_snd_work)
             
 #ifdef TARGET_PC
             /* retail (0x2DC814) stores this into vol, the fade's target, and returns the caller's
-               stale $f20; the fade down's dvol is what was meant (docs/PORT.md "1:1 notes") */
+               stale $f20; the fade down's dvol is what was meant (docs/ARCHITECTURE.md "Fidelity notes") */
             dvol = set_snd_work->vol_old + (fade_vol * (set_snd_work->vol_set_time - set_snd_work->vol_timer));
 #else
             set_snd_work->vol = set_snd_work->vol_old + (fade_vol * (set_snd_work->vol_set_time - set_snd_work->vol_timer));
