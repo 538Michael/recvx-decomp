@@ -1372,6 +1372,13 @@ unsigned int bhPlItemCheck()
     
     bhScePtr++;
 
+#ifdef TARGET_PC
+    if ((v0 == 31) && (pc_no_ink_ribbon() != 0))
+    {
+        return 1; /* PC option: the typewriters' ink ribbon check passes without one (pc/glue/coop_glue.c) */
+    }
+    
+#endif
     for (cnt = (sys->ply_id * 16) + 1; cnt < ((sys->ply_id * 16) + 12); cnt++) 
     {
         if (v0 == (unsigned char)(sys->itm[cnt] >> 16)) 
@@ -2151,6 +2158,13 @@ unsigned int bhItmCk()
             
             *v0 |= 0x80000000 >> v1;
             
+#ifdef TARGET_PC
+            if (coop_on)
+            {
+                coop_item_taken(v2 & 0x1FF, v4); /* co-op: an important item's pickup stays ours (shared loot, pc/glue/coop_glue.c) */
+            }
+            
+#endif
             v0 = (int*)&sys->ic_flg;
             
             v0 += (v2 & 0x1E0) >> 5;

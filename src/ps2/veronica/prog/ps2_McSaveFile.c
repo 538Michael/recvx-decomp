@@ -148,6 +148,13 @@ int mcWriteStartSaveFile(SAVEFILE* pSaveFile, MEMORYCARDSTATE* pCard, char** cpp
         
         wp = ItemSearch(itemid);
         
+#ifdef TARGET_PC
+        if (pc_no_ink_ribbon() != 0)
+        {
+            wp = NULL; /* PC option: saving uses no ink ribbon (pc/glue/coop_glue.c) */
+        }
+        
+#endif
         if (wp != NULL) 
         {
             if (!((*wp >> 16) & 0x800)) 
