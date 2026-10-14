@@ -47,7 +47,7 @@ OPTION OptionDef[8] = { { 0, 1, 0, 0, 0,  0,  0, 0, 0 },
                         { 0, 1, 0, 0, 0,  0,  0, 0, 0 },
                         { 0, 0, 0, 0, 0,  0,  0, 0, 0 },
                         { 0, 0, 0, 0, 0, -1, -1, 0, 0 },
-                        { 0, 0, 0, 0, 0,  4,  0, 0, 1 } };   /* PC SETTINGS: level 4 (pc/glue/options_glue.c) */
+                        { 0, 0, 0, 0, 0,  4,  0, 0, 1 } };   /* ENHANCED SETTINGS: level 4 (pc/glue/options_glue.c) */
 #endif
 NJS_TEXLIST AdvTexList[2] = { {AdvTexName[0], 8}, {AdvTexName[1], 8} };
 
@@ -2676,7 +2676,7 @@ void DisplayOptionBg(int Level, int Flag)
     case 0:
     case 1:
 #ifdef TARGET_PC
-    case 4:   /* PC SETTINGS: the same background */
+    case 4:   /* ENHANCED SETTINGS: the same background */
 #endif
         break;
     case -1:
@@ -2807,17 +2807,28 @@ int DisplayOptionPlateLevel0(int PortId, int Flag)
         } 
         else
         {
+#ifdef TARGET_PC
+            /* ENHANCED SETTINGS sits right of EXIT: right/left move between the two (as STEREO / MONO),
+               up from it goes to the row above EXIT */
+            if ((ap->OptIndex == 6 && (Pad[PortId].press & 0x2000)) || (ap->OptIndex == 7 && (Pad[PortId].press & 0x8000)))
+            {
+                ap->OptIndex = 13 - ap->OptIndex;
+                CallSystemSe(0, 2);
+            }
+            else if (ap->OptIndex == 7 && (Pad[PortId].Rept & 0x1000))
+            {
+                ap->OptIndex = 5;
+                CallSystemSe(0, 2);
+            }
+            else
+#endif
             if (ForceCursorMoveFlag == 0) 
             {
                 if ((Pad[PortId].Rept & 0x1000)) 
                 {
                     if (ap->OptIndex == 0) 
                     {
-#ifndef TARGET_PC
                         ap->OptIndex = 6;
-#else
-                        ap->OptIndex = 7;
-#endif
                         goto label;
                     }
                     
@@ -2836,7 +2847,7 @@ int DisplayOptionPlateLevel0(int PortId, int Flag)
 #ifndef TARGET_PC
                     if (ap->OptIndex == 6) 
 #else
-                    if (ap->OptIndex == 7)   /* PC SETTINGS is the last row */
+                    if (ap->OptIndex >= 6)   /* EXIT and ENHANCED SETTINGS (right of it): down wraps to the top */
 #endif
                     {
                         ap->OptIndex = 0;
@@ -2909,7 +2920,7 @@ int DisplayOptionPlateLevel0(int PortId, int Flag)
 #ifndef TARGET_PC
     for (i = 0; i < 7; i++) 
 #else
-    for (i = 0; i < 8; i++)   /* with PC SETTINGS */
+    for (i = 0; i < 8; i++)   /* with ENHANCED SETTINGS */
 #endif
     {
         OptionDef[i].SelectFlag = 0;
@@ -3047,7 +3058,7 @@ int DisplayOptionPlateLevel0(int PortId, int Flag)
     }
     
 #ifdef TARGET_PC
-    pc_options_row8(OptionDef[7].SelectFlag != 0);   /* PC SETTINGS */
+    pc_options_row8(OptionDef[7].SelectFlag != 0);   /* ENHANCED SETTINGS, right of EXIT */
 #endif
     
     AdvEasyDrawTexture(1, -1, &Qtex[14], 0.05f, 1);
@@ -3534,7 +3545,7 @@ int DisplayOptionPlate(int PortId, int Level, int Flag)
     case 3: 
         return DisplayOptionPlateLevel3(PortId, Flag); 
 #ifdef TARGET_PC
-    case 4:   /* PC SETTINGS (pc/glue/options_glue.c) */
+    case 4:   /* ENHANCED SETTINGS (pc/glue/options_glue.c) */
         return pc_options_pc(PortId, Flag);
 #endif
     }
@@ -3697,7 +3708,7 @@ int Adv_GameOptionScreen()
                     
                     break;
 #ifdef TARGET_PC
-                case 4:   /* PC SETTINGS, as KEY CONFIG: the bands stay */
+                case 4:   /* ENHANCED SETTINGS, as KEY CONFIG: the bands stay */
 #endif
                 case 1:
                     DisplayOptionBg(ap->OptLevel, 0);
@@ -3812,7 +3823,7 @@ int Adv_GameOptionScreen()
     if (ap->Mode2 == -1)
     {
 #ifdef TARGET_PC
-        pc_options_close();   /* PC SETTINGS: deferred cheats, the mouse cursor */
+        pc_options_close();   /* ENHANCED SETTINGS: deferred cheats, the mouse cursor */
 #endif
         if (ap->AppMode == 0) 
         {
