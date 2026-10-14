@@ -1414,6 +1414,12 @@ void bhControlPlayer()
             }
         }
         
+#ifdef TARGET_PC
+        if (tps_on)
+        {
+            tps_player_mode();   /* free aim: the weapon modes keep the straight aim height (tps_glue.c) */
+        }
+#endif
         bhCtrPly_mode0[plp->mode0]();
 #ifdef TARGET_PC
         if (tps_on)
