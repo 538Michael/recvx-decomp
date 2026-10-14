@@ -202,7 +202,11 @@ void DispTexture(SAVE_SCREEN* pSave)
 // 100% matching! 
 int ExecuteSaveScreen(SAVE_SCREEN* pSave) 
 {
+#ifdef TARGET_PC   /* native saves: no memory card; its queued writes go to the save files */
+    pSave->lCardState = pc_saves_native(pSave->ulState) ? pc_save_card(pSave->pMcState) : ExecuteMemoryCard(pSave->pMcState);
+#else
     pSave->lCardState = ExecuteMemoryCard(pSave->pMcState);
+#endif
     
     DispBackGroundTexture();
     
@@ -310,6 +314,16 @@ void ExecuteStateSaveScreenAwarenessCard(SAVE_SCREEN* pSave)
 {
 	int lPort0State;
     int lPort1State;
+
+#ifdef TARGET_PC   /* native saves: straight to the list of saves, a new one last */
+    if (pc_saves_native(-1))
+    {
+        pc_save_list(pSave->pSelectFileWindow, pSave->pMcState, 1);
+
+        SetStateSaveScreenSelectFile(pSave);
+        return;
+    }
+#endif
     
     switch (pSave->lCardState)
     {                              
@@ -1111,6 +1125,13 @@ void ExecuteStateSaveScreenSelectFile(SAVE_SCREEN* pSave)
         {
             KeyWait01 = 0;
             
+#ifdef TARGET_PC   /* native saves: any number of rows */
+            if ((pc_saves_native(-1)) && ((sys->pad_on & 0x3)))
+            {
+                pc_save_move(pSave->pSelectFileWindow, &pSave->sCursorY, (sys->pad_on & 0x1) ? -1 : 1);
+            }
+            else
+#endif
             if ((sys->pad_on & 0x1))
             {
                 pSave->sCursorY--;
@@ -1163,6 +1184,9 @@ void ExecuteStateSaveScreenSelectFile(SAVE_SCREEN* pSave)
     } 
     else if ((sys->pad_ps & 0x1000)) 
     {
+#ifdef TARGET_PC   /* native saves: no card selection to go back to */
+        if (pc_saves_native(-1)) SetStateSaveScreenExit(pSave); else
+#endif
         SetStateSaveScreenSelectCard(pSave);
         
         CallSystemSe(0, 0);
@@ -1344,7 +1368,11 @@ void ExecuteStateSaveScreenSave(SAVE_SCREEN* pSave)
     case 0:
         lFileNumber = GetMemoryCardFileNumber(pSave->pMcState);
         
+#ifdef TARGET_PC   /* native saves: the row can be past the card's 15 file names; pc_save_card writes the row's file */
+        lSaveResult = mcWriteStartSaveFile(pSave->pSaveFile, pSave->pMcState, cpNameList, pc_saves_native(-1) ? 0 : lFileNumber);
+#else
         lSaveResult = mcWriteStartSaveFile(pSave->pSaveFile, pSave->pMcState, cpNameList, lFileNumber);
+#endif
         
         if (lSaveResult == 1) 
         {

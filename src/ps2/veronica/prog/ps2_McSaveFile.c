@@ -765,6 +765,34 @@ void mcDispFileNumber(SELECTFILEINFO* pFileInfo, float fx, float fy)
     pos.x = fx;
     pos.y = fy;
     
+#ifdef TARGET_PC   /* native saves (pc/glue/save_glue.c): numbers past 99, narrower digits ending where two end */
+    if (pFileInfo->FileNumber >= 100)
+    {
+        float fScaleX = FontScaleX;
+        int lDigits = 0, lNum;
+
+        for (lNum = pFileInfo->FileNumber; lNum != 0; lNum /= 10) lDigits++;
+
+        FontScaleX = fScaleX * (64.0f / (26.0f * lDigits + 2.0f));
+
+        pos.x = 54.0f + fx - (26.0f * lDigits + 2.0f) * FontScaleX;
+
+        for (lNum = lDigits - 1; lNum >= 0; lNum--)
+        {
+            int lPow = 1, i;
+
+            for (i = 0; i < lNum; i++) lPow *= 10;
+
+            bhDispFontEx(&pos, MesNumTbl[(pFileInfo->FileNumber / lPow) % 10], col, -1.0f);
+
+            pos.x += 26.0f * FontScaleX;
+        }
+
+        FontScaleX = fScaleX;
+    }
+    else
+    {
+#endif
     ulTenfigure = pFileInfo->FileNumber / 10;
 
     if (ulTenfigure != 0)
@@ -775,6 +803,9 @@ void mcDispFileNumber(SELECTFILEINFO* pFileInfo, float fx, float fy)
     pos.x = 26.0f + fx; 
     
     bhDispFontEx(&pos, MesNumTbl[pFileInfo->FileNumber % 10], col, -1.0f);
+#ifdef TARGET_PC
+    }
+#endif
     
     pos.x = 58.0f + fx;
     

@@ -96,6 +96,13 @@ void DispSysLoadMessageSelect(int slSelectMes)
 // 100% matching!
 int ExecuteSysLoadScreen(SYSLOAD_SCREEN* pSysLoad) 
 { 
+#ifdef TARGET_PC   /* native saves: the system file read at once, no memory card screens (pc/glue/save_glue.c) */
+    if (pc_sysload_native(pSysLoad) != 0)
+    {
+        return pSysLoad->usExitFlag;
+    }
+    
+#endif
     pSysLoad->lCardState = ExecuteMemoryCard(pSysLoad->pMcState); 
     
     switch (pSysLoad->ulState) 

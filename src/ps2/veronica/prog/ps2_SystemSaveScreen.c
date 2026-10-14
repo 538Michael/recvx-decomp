@@ -117,6 +117,13 @@ void DispSysSaveMessageSelect(SYSSAVE_SCREEN* pSysSave)
 // 100% matching!
 int ExecuteSysSaveScreen(SYSSAVE_SCREEN* pSysSave)
 {
+#ifdef TARGET_PC   /* native saves: the system file written at once, no memory card screens (pc/glue/save_glue.c) */
+    if (pc_syssave_native(pSysSave) != 0)
+    {
+        return pSysSave->usExitFlag;
+    }
+    
+#endif
     pSysSave->lCardState = ExecuteMemoryCard(pSysSave->pMcState);
     
     switch (pSysSave->ulState)

@@ -123,7 +123,11 @@ void DispLoadTexture(LOAD_SCREEN* pLoad)
 // 100% matching! 
 int ExecuteLoadScreen(LOAD_SCREEN* pLoad)
 {
+#ifdef TARGET_PC   /* native saves: no memory card; its queued reads come from the save files */
+    pLoad->lCardState = pc_saves_native(pLoad->ulState) ? pc_save_card(pLoad->pMcState) : ExecuteMemoryCard(pLoad->pMcState);
+#else
     pLoad->lCardState = ExecuteMemoryCard(pLoad->pMcState);
+#endif
     
     DispBackGroundTexture();
     
@@ -201,6 +205,16 @@ void ExecuteStateLoadScreenAwarenessCard(LOAD_SCREEN* pLoad)
 {
     int lPort0State;
     int lPort1State;
+
+#ifdef TARGET_PC   /* native saves: straight to the list of saves */
+    if (pc_saves_native(-1))
+    {
+        pc_save_list(pLoad->pSelectFileWindow, pLoad->pMcState, 0);
+
+        SetStateLoadScreenSelectFile(pLoad);
+        return;
+    }
+#endif
     
     switch (pLoad->lCardState)
     {                              
@@ -692,6 +706,13 @@ void ExecuteStateLoadScreenSelectFile(LOAD_SCREEN* pLoad)
         {
             KeyWait01 = 0;
             
+#ifdef TARGET_PC   /* native saves: any number of rows */
+            if ((pc_saves_native(-1)) && ((sys->pad_on & 0x3)))
+            {
+                pc_save_move(pLoad->pSelectFileWindow, &pLoad->sCursorY, (sys->pad_on & 0x1) ? -1 : 1);
+            }
+            else
+#endif
             if ((sys->pad_on & 0x1))
             {
                 pLoad->sCursorY--;
@@ -742,6 +763,9 @@ void ExecuteStateLoadScreenSelectFile(LOAD_SCREEN* pLoad)
     } 
     else if ((sys->pad_ps & 0x1000)) 
     {
+#ifdef TARGET_PC   /* native saves: no card selection to go back to */
+        if (pc_saves_native(-1)) SetStateLoadScreenTitleExit(pLoad); else
+#endif
         SetStateLoadScreenSelectCard(pLoad);
         
         CallSystemSe(0, 0);
@@ -887,7 +911,11 @@ void ExecuteStateLoadScreenLoad(LOAD_SCREEN* pLoad)
     case 0:
         lFileNumber = GetMemoryCardFileNumber(pLoad->pMcState);
         
+#ifdef TARGET_PC   /* native saves: the row can be past the card's 15 file names; pc_save_card reads the row's file */
+        lResult = mcReadStartSaveFile(pLoad->pSaveFile, pLoad->pMcState, cpNameList, pc_saves_native(-1) ? 0 : lFileNumber);
+#else
         lResult = mcReadStartSaveFile(pLoad->pSaveFile, pLoad->pMcState, cpNameList, lFileNumber);
+#endif
         
         if (lResult == 1) 
         {
