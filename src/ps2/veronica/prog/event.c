@@ -2173,6 +2173,12 @@ unsigned int bhItmCk()
             
             *v0 &= ~(0x80000000 >> v1);
         }
+#ifdef TARGET_PC
+        else if (coop_on)
+        {
+            coop_item_late(v2 & 0x1FF); /* co-op: the partner took this spot while our "take it?" was open (shared loot, pc/glue/coop_glue.c) */
+        }
+#endif
     }
     else 
     { 
