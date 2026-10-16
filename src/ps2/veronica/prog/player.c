@@ -1433,6 +1433,7 @@ void bhControlPlayer()
         }
 
         modern_player();   /* modern controls: turn towards the direction held (modern_glue.c) */
+        reload_player();   /* the reload button: the game's reload of an empty magazine at any time (reload_glue.c) */
 #endif
         
         if ((plp->flg & 0x100000)) 
