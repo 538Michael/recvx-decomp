@@ -15,6 +15,9 @@
 #include "../../../ps2/veronica/prog/system.h"
 #include "../../../ps2/veronica/prog/ps2_dummy.h"
 #include "../../../ps2/veronica/prog/main.h"
+#ifdef TARGET_PC
+extern int pose_trace_mark;
+#endif
 
 // 100% matching! 
 void bhMainSequence()
@@ -395,6 +398,9 @@ void bhAllDrawModel()
         bhDrawEnemy();
     }
     njControl3D(0);
+#ifdef TARGET_PC
+    pose_trace_mark = 1;   /* test aid RECVX_POSE_TRACE: the player's draw */
+#endif
     if (((sys->pt_flg & 1) && !(plp->stflg & 0x01000000)) || ((plp->stflg & 0x01000000) && (pl_sleep_cnt != 0))) {
         if (pl_sleep_cnt != 0) {
             pl_sleep_cnt -= 1;
@@ -415,6 +421,9 @@ void bhAllDrawModel()
             }
         }
     }
+#ifdef TARGET_PC
+    pose_trace_mark = 0;
+#endif
 #ifdef TARGET_PC
     if (coop_on) {
         coop_draw_remote();
