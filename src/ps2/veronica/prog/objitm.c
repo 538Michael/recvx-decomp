@@ -18,6 +18,9 @@
 #include "../../../ps2/veronica/prog/sdfunc.h"
 #include "../../../ps2/veronica/prog/system.h"
 #include "../../../ps2/veronica/prog/weapon.h"
+#ifdef TARGET_PC   /* prototypes of functions the original calls undeclared (a char result or float argument goes wrong on i686) */
+#include "../../../ps2/veronica/prog/player.h"
+#endif
 
 #pragma optimization_level 4
 

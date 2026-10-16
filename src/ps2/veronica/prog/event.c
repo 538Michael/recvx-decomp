@@ -25,6 +25,12 @@
 #include "../../../ps2/veronica/prog/system.h"
 #include "../../../ps2/veronica/prog/zonzon.h"
 #include "../../../ps2/veronica/prog/main.h"
+#ifdef TARGET_PC   /* prototypes of functions the original calls undeclared (a char result or float argument goes wrong on i686) */
+#include "../../../ps2/veronica/prog/camera.h"
+#include "../../../ps2/veronica/prog/light.h"
+#include "../../../ps2/veronica/prog/objitm.h"
+#include "../../../ps2/veronica/prog/weapon.h"
+#endif
 
 #pragma optimization_level 4 // TODO: remove this pragma and compile the file passing the -O4,p flag instead 
 

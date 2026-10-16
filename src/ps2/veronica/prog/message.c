@@ -1,6 +1,9 @@
 #include "../../../ps2/veronica/prog/message.h"
 #include "../../../ps2/veronica/prog/ps2_NaDraw2D.h"
 #include "../../../ps2/veronica/prog/main.h"
+#ifdef TARGET_PC   /* prototypes of functions the original calls undeclared (a char result or float argument goes wrong on i686) */
+#include "../../../ps2/veronica/prog/sdfunc.h"
+#endif
 
 float FontScaleX;
 float FontScaleY;

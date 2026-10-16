@@ -1,4 +1,7 @@
 #include "../../../ps2/veronica/prog/en17sub.h"
+#ifdef TARGET_PC   /* prototypes of functions the original calls undeclared (a char result or float argument goes wrong on i686) */
+#include "../../../ps2/veronica/prog/MdlPut.h"
+#endif
 
 typedef void (*LArm_Mode0_proc)(BH_PWORK*);
 typedef void (*RArm_Mode0_proc)(BH_PWORK*);

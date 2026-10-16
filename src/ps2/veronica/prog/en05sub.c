@@ -1,6 +1,10 @@
 #include "../../../ps2/veronica/prog/en05sub.h"
 #include "../../../ps2/veronica/prog/eneset.h"
 #include "../../../ps2/veronica/prog/hitchkl.h"
+#ifdef TARGET_PC   /* prototypes of functions the original calls undeclared (a char result or float argument goes wrong on i686) */
+#include "../../../ps2/veronica/prog/en03.h"
+#include "../../../ps2/veronica/prog/zonzon1.h"
+#endif
 
 typedef void (*Mode0_proc)(BH_PWORK*);
 typedef void (*MoveMode2_proc)(BH_PWORK*);

@@ -7,6 +7,10 @@
 #include "../../../ps2/veronica/prog/ps2_NaMatrix.h"
 #include "../../../ps2/veronica/prog/pwksub.h"
 #include "../../../ps2/veronica/prog/weapon.h"
+#ifdef TARGET_PC   /* prototypes of functions the original calls undeclared (a char result or float argument goes wrong on i686) */
+#include "../../../ps2/veronica/prog/flag.h"
+#include "../../../ps2/veronica/prog/sdfunc.h"
+#endif
 
 // 100% matching! 
 void PlyPchInit(BH_PWORK* ewP)

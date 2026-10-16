@@ -13,6 +13,12 @@
 #include "../../../ps2/veronica/prog/Motion.h"
 #include "../../../ps2/veronica/prog/effect.h"
 #include "../../../ps2/veronica/prog/pwksub.h"
+#ifdef TARGET_PC   /* prototypes of functions the original calls undeclared (a char result or float argument goes wrong on i686) */
+#include "../../../ps2/veronica/prog/MdlPut.h"
+#include "../../../ps2/veronica/prog/flag.h"
+#include "../../../ps2/veronica/prog/hitchk.h"
+int write(int fd, const void* buf, unsigned int n);   /* <unistd.h> / mingw <io.h>; the header itself would follow pc_prelude.h's long macro */
+#endif
 
 //#include <string.h>
 
