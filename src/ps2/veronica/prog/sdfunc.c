@@ -17,6 +17,9 @@
 #include "../../../ps2/veronica/prog/sdcwrap.h"
 #include "../../../ps2/veronica/prog/vibman.h"
 #include "../../../ps2/veronica/prog/main.h"
+#ifdef TARGET_PC
+#include "../../../ps2/veronica/prog/ps2_sg_sd.h"   /* pc_snd_download_now */
+#endif
 
 //#include <string.h>
 
@@ -465,11 +468,21 @@ void UnmountSoundAfs()
     }
 } 
 
+#ifdef TARGET_PC
+static int pc_spq_now;   /* pc_load_sound_pack_now is running (on the game task) */
+#endif
+
 // 100% matching! 
 void ExecSoundSynchProgram()
 {
     if (SoundInitLevel < 0) 
     {
+#ifdef TARGET_PC
+        /* a VBLANK delivered inside pc_load_sound_pack_now (its disc read polls interrupts) leaves
+           the downloads and the file manager to it instead of re-entering them */
+        if (pc_spq_now == 0)
+        {
+#endif
         sdSysServer();
         
         if ((SpqFileReadRequestFlag != 0) && (LoadSoundPackFile(SpqFileName) <= 0)) 
@@ -478,6 +491,9 @@ void ExecSoundSynchProgram()
         }
         
         ExecTransSoundData();
+#ifdef TARGET_PC
+        }
+#endif
         
         ExecSoundFadeManager();
         ExecSoundPanManager();
@@ -489,6 +505,9 @@ void ExecSoundSynchProgram()
         
         KeyReadSwitch = (KeyReadSwitch != 0) ^ 1;
         
+#ifdef TARGET_PC
+        if (pc_spq_now == 0)
+#endif
         ExecFileManager();
         
         ExecAdjustDisplay();
@@ -717,6 +736,47 @@ int LoadSoundPackFile(char* SpqFile)
 
     return 1;
 }
+
+#ifdef TARGET_PC
+/* "Fast loading": the sound pack requested (Request*SoundBank) loaded at once on the game task,
+   as the VBLANK path (ExecSoundSynchProgram) does it one step per VBLANK: LoadSoundPackFile's steps
+   in a loop, its disc read completed by the file manager, each bank download done at once
+   (ps2_sg_sd.c pc_snd_download_now). On the PS2 the steps waited for the disc and the SIF DMA to
+   the sound chip; here both are done when the call returns. If a step does not finish (a download
+   gave up), the VBLANK path carries on from where this left off. */
+void pc_load_sound_pack_now()
+{
+    int i;
+    
+    if ((pc_fast_loading() == 0) || (SoundInitLevel >= 0) || (pc_spq_now != 0))
+    {
+        return;
+    }
+    
+    pc_spq_now = 1;
+    
+    for (i = 0; (i < 1024) && (SpqFileReadRequestFlag != 0); i++)
+    {
+        if (LoadSoundPackFile(SpqFileName) <= 0)
+        {
+            SpqFileReadRequestFlag = 0;
+            break;
+        }
+        
+        if (FileReadStatus == 1)
+        {
+            ExecFileManager();
+        }
+        
+        if (pc_snd_download_now() != 0)
+        {
+            break;
+        }
+    }
+    
+    pc_spq_now = 0;
+}
+#endif
 
 // 100% matching! 
 void ExecTransSoundData()

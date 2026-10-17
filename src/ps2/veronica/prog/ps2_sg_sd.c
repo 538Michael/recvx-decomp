@@ -1676,6 +1676,30 @@ int sndr_trans_func()
     }
 }
 
+#ifdef TARGET_PC
+/* "Fast loading" (sdfunc.c pc_load_sound_pack_now): the download sdBankDownload started, all its
+   steps at once, as sdDrvInit does for the driver's own banks, instead of one step (one 48 KB
+   packet) per vblank in sdSysServer. The IOP runs each command as it is sent (snd_iop.c), so after
+   every step the status block is read again as sdSysServer does: the checksum step compares the sum
+   the IOP has just computed, not the previous bank's. Returns 0 when done; 1 if it gave up (then
+   sdSysServer carries on per vblank, as the original). */
+int pc_snd_download_now()
+{
+    int i;
+    
+    for (i = 0; (i < 4096) && (snd_data_down_load != 0); i++)
+    {
+        sndr_trans_func();
+        
+        SdrSendReq(0);
+        
+        get_iopsnd_info();
+    }
+    
+    return snd_data_down_load != 0;
+}
+#endif
+
 // 100% matching!
 SDE_ERR	sdSysServer( Void)
 {

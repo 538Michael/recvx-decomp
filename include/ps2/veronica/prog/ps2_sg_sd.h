@@ -74,4 +74,8 @@ extern int iop_buff;
 extern int iop_read_buff;
 extern char sound_flag;
 
+#ifdef TARGET_PC
+int pc_snd_download_now();   /* "Fast loading": the bank download in progress at once (sdfunc.c) */
+#endif
+
 #endif

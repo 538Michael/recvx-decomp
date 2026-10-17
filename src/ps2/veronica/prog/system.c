@@ -964,6 +964,7 @@ void bhSysCallItemselect()
 
 #ifdef TARGET_PC
 static unsigned int pc_door_start;   /* Ps2_sys_cnt as the transition began (log) */
+static const char* pc_load_from;    /* what began it, for the "room: ... ready" line: "the door", "the game start" */
 #endif
 
 // 100% matching! 
@@ -984,6 +985,8 @@ void bhSysCallDoordemo()
         pc_door_skip_pressed(1);   /* "Skippable": presses from now on count, not the one that opened the door */
         
         pc_door_start = Ps2_sys_cnt;
+
+        pc_load_from = "the door";
         
         host_log("door: to %d/%d entry %d, animation %d%s\n", ddp->stg_no, ddp->rom_no, ddp->pos_no, ddp->dor_tp, (((ddp->flg & 0x80000000)) || (ddp->dor_tp == 255) || pc_skip_door_demo()) ? " skipped (load screen)" : "");
         
@@ -1378,6 +1381,20 @@ void bhSysCallCompEvent()
     bhControlSpEvtComputer();
 }
 
+#ifdef TARGET_PC
+/* "Fast loading" (pc_fast_loading, recvx.ini fast_loading): a room's texture lists and its sound
+   packs at once instead of one step per frame, the pace the PS2's disc and SIF DMA to the sound
+   chip set. Not in the attract demo: it replays recorded input from srand(1) at the room load
+   (step 10), and the room's effects take random numbers in every frame of the load. */
+#define PC_FAST_LOAD_EFFECT_FRAMES 30   /* the effects' frames during a load, at least (see step 16) */
+static int pc_load_effect_frames;   /* frames the monitor ran the room's effects since step 10 */
+
+static int pc_fast_load()
+{
+    return (pc_fast_loading() != 0) && (!(sys->ss_flg & 0x400000));
+}
+#endif
+
 // 100% matching! 
 void bhSysCallMonitor()
 {
@@ -1404,6 +1421,11 @@ void bhSysCallMonitor()
         switch (sys->mn_md1) 
         {
         case 0:
+#ifdef TARGET_PC
+            pc_door_start = Ps2_sys_cnt;
+
+            pc_load_from = "the game start";
+#endif
             sys->memp = (unsigned char*)ALIGN_UP((int)sys->memp, 64);
             
             sys->sdm_flg = 0xE;
@@ -1800,6 +1822,15 @@ void bhSysCallMonitor()
                 
                 break;
             case 3:
+#ifdef TARGET_PC
+                /* "Fast loading": all but the last list now, the last one and bhFinishRoom as before */
+                while ((pc_fast_load() != 0) && (sys->txr_n > (sys->txr_ct + 1)))
+                {
+                    bhSetMemPvpTexture(sys->txlp[sys->txr_ct], sys->txdp[sys->txr_ct], sys->txloff[sys->txr_ct]);
+
+                    sys->txr_ct++;
+                }
+#endif
                 if (sys->txr_n > sys->txr_ct)
                 {
                     bhSetMemPvpTexture(sys->txlp[sys->txr_ct], sys->txdp[sys->txr_ct], sys->txloff[sys->txr_ct]);
@@ -1916,6 +1947,9 @@ void bhSysCallMonitor()
                 sys->sdm_flg |= 0x1;
                 
                 sys->ef_flg |= 0x1;
+#ifdef TARGET_PC
+                pc_load_effect_frames = 0;
+#endif
                 
                 sys->mn_md1 = 11;
                 break;
@@ -1969,6 +2003,24 @@ void bhSysCallMonitor()
                 
                 sys->fog_ct = sys->fog_cngct - 3;
                 
+#ifdef TARGET_PC
+                /* "Fast loading": the room's effects (rain, smoke, sparks) ran in every frame of the
+                   load (the tail of this function); the original load lasts at least about 30
+                   frames, so they get that many before the room is shown and look settled */
+                while ((pc_fast_load() != 0) && (sys->ef_flg & 0x1) && (pc_load_effect_frames < PC_FAST_LOAD_EFFECT_FRAMES))
+                {
+                    bhControlEffect();
+
+                    pc_load_effect_frames++;
+                }
+
+                if (pc_load_from != NULL)
+                {
+                    host_log("room: RM_%d%02d%d ready %u frames after %s\n", sys->stg_no, sys->rom_no, sys->rcase, Ps2_sys_cnt - pc_door_start, pc_load_from);
+
+                    pc_load_from = NULL;
+                }
+#endif
                 sys->ef_flg &= ~0x1;
                 
                 sys->ts_flg &= ~0x180;
@@ -2255,6 +2307,9 @@ void bhSysCallMonitor()
     if ((sys->ef_flg & 0x1)) 
     {
         bhControlEffect();
+#ifdef TARGET_PC
+        pc_load_effect_frames++;
+#endif
     }
 
     if ((NowLoadDisp != 0) && (sys->mes_sp != NULL)) 
@@ -2266,6 +2321,12 @@ void bhSysCallMonitor()
 // 100% matching! 
 void bhSysCallSndMonitor()
 {
+#ifdef TARGET_PC
+    int pc_pass;
+    unsigned int pc_mode;
+    int pc_pending;
+#endif
+
     if (((!(sys->ss_flg & 0x120000)) && (!(sys->tk_flg & 0x3F))) && (SoftResetFlag == 1)) 
     {
         if ((sys->ss_flg & 0x400000))
@@ -2287,6 +2348,13 @@ void bhSysCallSndMonitor()
         sys->ss_flg |= 0x100000; 
     }
     
+#ifdef TARGET_PC
+    /* "Fast loading": the steps below in one frame, each requested sound pack loaded at once
+       (sdfunc.c pc_load_sound_pack_now); stops at a step that waits for something else */
+    for (pc_pass = 0; pc_pass < 16; pc_pass++)
+    {
+    pc_mode = sys->sdm_mode;
+#endif
     if ((sys->sdm_flg & 0x1)) 
     {
         switch (sys->sdm_mode) 
@@ -2357,6 +2425,29 @@ void bhSysCallSndMonitor()
             break;
         }
     }
+#ifdef TARGET_PC
+    if ((pc_fast_load() == 0) || (!(sys->sdm_flg & 0x1)))
+    {
+        break;
+    }
+
+    pc_pending = CheckTransEndSoundBank() != 0;
+
+    if (pc_pending != 0)
+    {
+        pc_load_sound_pack_now();
+
+        if (CheckTransEndSoundBank() != 0)
+        {
+            break;
+        }
+    }
+    else if (sys->sdm_mode == pc_mode)
+    {
+        break;
+    }
+    }
+#endif
 
     ExecSoundSystemMonitor();
 }

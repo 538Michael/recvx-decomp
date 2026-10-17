@@ -233,4 +233,8 @@ extern int AddFxLevel;
 extern NEXTSOUND_INFO NextSoundInfo;
 extern int PatId[4];
 
+#ifdef TARGET_PC
+void pc_load_sound_pack_now();   /* "Fast loading": the requested sound pack at once (game task) */
+#endif
+
 #endif
