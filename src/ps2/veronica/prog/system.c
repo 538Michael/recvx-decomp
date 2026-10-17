@@ -962,6 +962,10 @@ void bhSysCallItemselect()
     }
 }
 
+#ifdef TARGET_PC
+static unsigned int pc_door_start;   /* Ps2_sys_cnt as the transition began (log) */
+#endif
+
 // 100% matching! 
 void bhSysCallDoordemo()
 {
@@ -977,6 +981,12 @@ void bhSysCallDoordemo()
 #ifndef TARGET_PC
         if (((ddp->flg & 0x80000000)) || (sys->door.dor_tp == 255))
 #else
+        pc_door_skip_pressed(1);   /* "Skippable": presses from now on count, not the one that opened the door */
+        
+        pc_door_start = Ps2_sys_cnt;
+        
+        host_log("door: to %d/%d entry %d, animation %d%s\n", ddp->stg_no, ddp->rom_no, ddp->pos_no, ddp->dor_tp, (((ddp->flg & 0x80000000)) || (ddp->dor_tp == 255) || pc_skip_door_demo()) ? " skipped (load screen)" : "");
+        
         /* option: the game's own no-animation path (load screen) for every transition */
         if (((ddp->flg & 0x80000000)) || (sys->door.dor_tp == 255) || pc_skip_door_demo())
 #endif
@@ -1042,7 +1052,28 @@ void bhSysCallDoordemo()
         
         ddp->mode0++;
     case 5:
+#ifdef TARGET_PC
+        /* "Skippable": a fresh press ends the demo as its own end does (bhExitDoor, the task done),
+           once the next room is loaded and waits only for the door (bhSysCallMonitor room load at
+           step 11, its sound loaded), so nothing loads twice, no texture is released under the
+           room's upload and the room follows at once; an earlier press waits for that. The door's
+           sound and rumble are cut */
+        if ((sys->mn_md0 == 4) && (sys->mn_md1 == 11) && (!(sys->sdm_flg & 0x1)) && (pc_door_skip_pressed(0) != 0))
+        {
+            StopSystemSe();
+            StopVibrationEx();
+            
+            host_log("door: animation skipped by a press after %u frames\n", Ps2_sys_cnt - pc_door_start);
+            
+            code = 0;
+        }
+        else if ((code = bhControlDoor()) == 0)
+        {
+            host_log("door: animation played to its end, %u frames\n", Ps2_sys_cnt - pc_door_start);
+        }
+#else
         code = bhControlDoor();
+#endif
         
         if (code != 0) 
         {
