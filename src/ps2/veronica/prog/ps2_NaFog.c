@@ -173,7 +173,7 @@ float njCalcFogPowerEx(float INVZ)
         else
         {
 #ifdef TARGET_PC
-            ftmp2 = fNaFogDensity * pc_fog_scale() * INVZ;   /* option: fog reduction (pc_fog_scale, 1 = original) */
+            ftmp2 = fNaFogDensity * pc_fog_scale() * INVZ;   /* option: fog intensity (pc_fog_scale, 1 = original) */
 #else
             ftmp2 = fNaFogDensity * INVZ;
 #endif
