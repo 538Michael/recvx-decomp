@@ -1846,8 +1846,14 @@ void bhSysCallMonitor()
                         plp->stflg &= 0x40000000 | 0x20000000 | 0x10000000 | 0x8000000 | 0x200000 | 0x80000;
                         
                         sys->ply_stflg[sys->ply_id] = plp->stflg;
-                        
-                        for (i = 0; i < plp->mdl_n; i++) 
+
+#ifdef TARGET_PC
+                        if ((coop_on != 0) || (appear_on != 0))
+                        {
+                            coop_player_unload();   /* "You appear as": the character's own model back, so its textures are the ones released */
+                        }
+#endif
+                        for (i = 0; i < plp->mdl_n; i++)
                         {
                             if (plp->mdl[i].texP != NULL) 
                             {
