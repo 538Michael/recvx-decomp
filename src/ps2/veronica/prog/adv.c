@@ -1201,6 +1201,27 @@ void DefaultSetOption()
     SetUseVibrationUnit(sys->vibration); 
 }
 
+#ifdef TARGET_PC
+/* boot pictures and the Capcom logo: any key, mouse or gamepad button pressed since the picture
+   began (pc_intro_pressed) starts its fade-out early, from where its fade-in stands */
+static int AdvIntroSkip()
+{
+    ADV_WORK* ap = (ADV_WORK*)&AdvWork;
+    float rate = ap->FadeType == 2 ? ap->FadeRate : 0;
+
+    if (pc_intro_pressed(0) == 0)
+    {
+        return 0;
+    }
+
+    RequestAdvFade(3, GetSamurai(50));
+
+    ap->FadeRate = rate;
+
+    return 1;
+}
+#endif
+
 // 99.72% matching
 int Adv_FirstWarningMessage()
 { 
@@ -1221,6 +1242,12 @@ int Adv_FirstWarningMessage()
     
     AdvCheckSoftReset(0); 
 
+#ifdef TARGET_PC
+    if (((ap->Mode == 17) || (ap->Mode == 18)) && (AdvIntroSkip() != 0))   /* a press: this picture's fade-out */
+    {
+        ap->Mode = 19;
+    }
+#endif
     switch (ap->Mode) 
     { 
     case 0:
@@ -1345,6 +1372,9 @@ int Adv_FirstWarningMessage()
         }
 #endif
         RequestAdvFade(2, GetSamurai(50)); 
+#ifdef TARGET_PC
+        pc_intro_pressed(1);   /* the picture begins: only presses from now on skip it */
+#endif
         
         ap->Count = 0; 
         
@@ -1388,6 +1418,9 @@ int Adv_FirstWarningMessage()
             else 
             { 
                 RequestAdvFade(2, GetSamurai(50)); 
+#ifdef TARGET_PC
+                pc_intro_pressed(1);   /* the next picture begins */
+#endif
                 
                 ap->Mode = 17; 
             }
@@ -1434,6 +1467,24 @@ int Adv_CapcomLogo()
     
     AdvCheckSoftReset(0); 
 
+#ifdef TARGET_PC
+    if (((ap->Mode == 4) || (ap->Mode == 5)) && (AdvIntroSkip() != 0))   /* a press: the logo's fade-out */
+    {
+        pc_intro_pressed(1);   /* the fade-out begins: a further press skips the movie (case 6) */
+
+        ap->NextMode = 7;
+        ap->Mode = 6;
+    }
+    else if ((ap->Mode == 8) || (ap->Mode == 9))
+    {
+        if (pc_intro_pressed(0) != 0)   /* a press: the movie's own skip (Start) */
+        {
+            pc_intro_pressed(1);
+
+            Pad[ap->PortId].press |= 0x800;
+        }
+    }
+#endif
     switch (ap->Mode) 
     { 
     case 0:
@@ -1454,6 +1505,9 @@ int Adv_CapcomLogo()
         AdvEasyTransTexture(); 
         
         RequestAdvFade(2, GetSamurai(50)); 
+#ifdef TARGET_PC
+        pc_intro_pressed(1);   /* the logo begins */
+#endif
         
         ap->Mode = 4; 
         break; 
@@ -1471,6 +1525,9 @@ int Adv_CapcomLogo()
         if (--ap->Timer < 0) 
         { 
             RequestAdvFade(3, GetSamurai(50)); 
+#ifdef TARGET_PC
+            pc_intro_pressed(1);   /* the fade-out begins */
+#endif
             
             ap->NextMode = 7; 
             ap->Mode = 6; 
@@ -1485,7 +1542,14 @@ int Adv_CapcomLogo()
         }
         else
         {
+#ifdef TARGET_PC
+            /* any press during the fade-out skips the movie, as Start does on the PS2; only
+               presses since the fade-out began, so the one that ended the logo does not (its Start
+               may reach the pad a frame after the press is counted) */
+            if (pc_intro_pressed(0) != 0) 
+#else
             if ((Pad[ap->PortId].press & 0x800)) 
+#endif
             { 
                 ap->NextMode = -1;
             }
@@ -1496,6 +1560,9 @@ int Adv_CapcomLogo()
         break; 
     case 7:
         PlayStartMovieEx(16, 0, 1); 
+#ifdef TARGET_PC
+        pc_intro_pressed(1);   /* the movie begins */
+#endif
         
         ap->Mode = 8; 
         break; 
