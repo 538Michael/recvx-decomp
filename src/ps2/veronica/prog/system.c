@@ -1347,6 +1347,16 @@ void bhSysCallOption()
             bhStandPlayerMotion(); 
             
             njClipZ(GameNear, GameFar); 
+#ifdef TARGET_PC
+            if (pc_options_quit_title())   /* OPTION's RETURN TO TITLE, answered YES: as the soft reset (bhSysCallSndMonitor) */
+            {
+                PlayStopMovieEx(0);
+                
+                RequestAllStopSoundEx(1, 1, 0);
+                
+                bhReturnTitle();
+            }
+#endif
         } 
         else 
         { 

@@ -40,14 +40,15 @@ OPTION OptionDef[7] = { { 0, 1, 0, 0, 0,  0,  0, 0, 0 },
                         { 0, 0, 0, 0, 0,  0,  0, 0, 0 },
 			            { 0, 0, 0, 0, 0, -1, -1, 0, 0 } };
 #else
-OPTION OptionDef[8] = { { 0, 1, 0, 0, 0,  0,  0, 0, 0 },
+OPTION OptionDef[9] = { { 0, 1, 0, 0, 0,  0,  0, 0, 0 },
                         { 0, 2, 0, 0, 0,  1,  0, 0, 1 },
                         { 0, 0, 0, 2, 0,  2,  0, 0, 0 },
                         { 0, 0, 0, 0, 0,  3,  0, 0, 0 },
                         { 0, 1, 0, 0, 0,  0,  0, 0, 0 },
                         { 0, 0, 0, 0, 0,  0,  0, 0, 0 },
                         { 0, 0, 0, 0, 0, -1, -1, 0, 0 },
-                        { 0, 0, 0, 0, 0,  4,  0, 0, 1 } };   /* ENHANCED SETTINGS: level 4 (pc/glue/options_glue.c) */
+                        { 0, 0, 0, 0, 0,  4,  0, 0, 1 },     /* ENHANCED SETTINGS: level 4 (pc/glue/options_glue.c) */
+                        { 0, 0, 0, 0, 0,  0,  0, 0, 0 } };   /* RETURN TO TITLE (in a game): asks first (pc/glue/options_glue.c) */
 #endif
 NJS_TEXLIST AdvTexList[2] = { {AdvTexName[0], 8}, {AdvTexName[1], 8} };
 
@@ -2748,7 +2749,20 @@ int DisplayOptionPlateLevel0(int PortId, int Flag)
     ForceCursorMoveFlag = 0;
     
 #ifdef TARGET_PC
-    if (Flag != 0) pc_options_mouse0(PortId);   /* hover selects, click confirms */
+    if (Flag != 0) 
+    {
+        int Quit = pc_options_quit(PortId);   /* RETURN TO TITLE's question takes the input while it is up */
+        
+        if (Quit < 0)   /* YES: the option screen closes as from EXIT, then the game returns to the title (bhSysCallOption) */
+        {
+            ap->OptFadeType = 0;
+            
+            ReturnCode = -1;
+        }
+        
+        if (Quit != 0) Flag = 0;
+        else pc_options_mouse0(PortId);   /* hover selects, click confirms */
+    }
     
 #endif
     if (CheckVibrationUnit((PortId * 6) + 2) == 0) 
@@ -2804,6 +2818,14 @@ int DisplayOptionPlateLevel0(int PortId, int Flag)
                 
                 CallSystemSe(0, 3);
             }
+#ifdef TARGET_PC
+            else if (ap->OptIndex == 8)   /* RETURN TO TITLE: its question, NO preselected */
+            {
+                pc_options_quit_open();
+                
+                CallSystemSe(0, 3);
+            }
+#endif
         } 
         else
         {
@@ -2817,7 +2839,19 @@ int DisplayOptionPlateLevel0(int PortId, int Flag)
             }
             else if (ap->OptIndex == 7 && (Pad[PortId].Rept & 0x1000))
             {
-                ap->OptIndex = 5;
+                ap->OptIndex = (sys->tk_flg & 0x80) ? 8 : 5;
+                CallSystemSe(0, 2);
+            }
+            /* RETURN TO TITLE, in a game only, sits right of DEFAULT above ENHANCED SETTINGS: right/left
+               move between DEFAULT and it, down goes to ENHANCED SETTINGS, up to the row above */
+            else if ((sys->tk_flg & 0x80) && ((ap->OptIndex == 5 && (Pad[PortId].press & 0x2000)) || (ap->OptIndex == 8 && (Pad[PortId].press & 0x8000))))
+            {
+                ap->OptIndex = 13 - ap->OptIndex;
+                CallSystemSe(0, 2);
+            }
+            else if (ap->OptIndex == 8 && (Pad[PortId].Rept & 0x5000))
+            {
+                ap->OptIndex = (Pad[PortId].Rept & 0x4000) ? 7 : (PuruFindFlag != 0) ? 4 : 3;
                 CallSystemSe(0, 2);
             }
             else
@@ -2920,7 +2954,7 @@ int DisplayOptionPlateLevel0(int PortId, int Flag)
 #ifndef TARGET_PC
     for (i = 0; i < 7; i++) 
 #else
-    for (i = 0; i < 8; i++)   /* with ENHANCED SETTINGS */
+    for (i = 0; i < 9; i++)   /* with ENHANCED SETTINGS and RETURN TO TITLE */
 #endif
     {
         OptionDef[i].SelectFlag = 0;
@@ -3058,7 +3092,7 @@ int DisplayOptionPlateLevel0(int PortId, int Flag)
     }
     
 #ifdef TARGET_PC
-    pc_options_row8(OptionDef[7].SelectFlag != 0);   /* ENHANCED SETTINGS, right of EXIT */
+    pc_options_rows0();   /* ENHANCED SETTINGS right of EXIT, RETURN TO TITLE right of DEFAULT (in a game), its question */
 #endif
     
     AdvEasyDrawTexture(1, -1, &Qtex[14], 0.05f, 1);
