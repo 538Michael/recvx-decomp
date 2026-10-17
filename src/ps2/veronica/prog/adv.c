@@ -2691,6 +2691,17 @@ void DisplayOptionBg(int Level, int Flag)
         for (j = 0; j < 2; j++) 
         {
             DisplayOptionScrollPlate(ap->ScrollPlatePosX[i][j], y[i]);
+#ifdef TARGET_PC
+            {   /* widescreen: the two plates (672 wide each) cover 1344; copies 1344 to either
+                   side, in the same scroll phase, carry the band to the window's edges (4:1) */
+                float half = 320.0f * pc_hor_scale(), px;
+                int k;
+                for (k = -1; k <= 1; k += 2) {
+                    px = ap->ScrollPlatePosX[i][j] + k * 1344.0f;
+                    if (half > 320.0f && px < 320.0f + half && px + 672.0f > 320.0f - half) DisplayOptionScrollPlate(px, y[i]);
+                }
+            }
+#endif
             
             ap->ScrollPlatePosX[i][j] += s[i];
         }

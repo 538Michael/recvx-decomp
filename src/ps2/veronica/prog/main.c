@@ -217,7 +217,13 @@ Sint32 njUserMain(void)
     { 
         if (((sys->tk_flg & (1 << i))) && (!(sys->ts_flg & (1 << i)))) 
         { 
+#ifdef TARGET_PC   /* the status screen (files, item box) and the map: their 2D stays inside the 4:3 screen */
+            pc_menu_clip(i == 9 || i == 10);
+            bhSysTaskJumpTab[i]();
+            pc_menu_clip(0);
+#else
             bhSysTaskJumpTab[i](); 
+#endif
         } 
     } 
     
