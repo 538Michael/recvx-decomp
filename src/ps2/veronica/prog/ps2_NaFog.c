@@ -172,7 +172,11 @@ float njCalcFogPowerEx(float INVZ)
         } 
         else
         {
+#ifdef TARGET_PC
+            ftmp2 = fNaFogDensity * pc_fog_scale() * INVZ;   /* option: fog reduction (pc_fog_scale, 1 = original) */
+#else
             ftmp2 = fNaFogDensity * INVZ;
+#endif
             
             if (ftmp2 < 1.0f) 
             {
@@ -230,7 +234,11 @@ float njCalcFogPower(float fVSZ)
         }
         else
         {
+#ifdef TARGET_PC
+            ftmp2 = fNaFogDensity * pc_fog_scale() / fVSZ;   /* as in njCalcFogPowerEx */
+#else
             ftmp2 = fNaFogDensity / fVSZ;
+#endif
         }
         
         if (ftmp2 < 1.0f)
