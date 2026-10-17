@@ -544,26 +544,14 @@ void    njCnkEasyDrawModel( NJS_CNK_MODEL *model )
 
 // 100% matching!
 #ifdef TARGET_PC
-/* hor+ widescreen: each camera of a room hides room parts it cannot see (cut.c, hidobj
-   lists authored for the 4:3 view). Such a part is drawn anyway if it lies entirely outside
-   the original 4:3 view, in the widened margins; hidden parts inside it (occluders between
-   camera and player) or reaching the camera stay hidden. */
+/* each camera of a room hides room parts it cannot see (cut.c, hidobj lists). Third person
+   draws every room part; hor+ widescreen draws them in the margins (pc/glue/view_glue.c
+   pc_margin_part). Not a node without a model: hidden for good, cut.c bhSetCut never touches it
+   (drawing it read through a NULL model in 6/8, 7/25, 9/8, 9/17). */
 static int pc_show_hidden(NJS_CNK_OBJECT* obj)
 {
-    NJS_CNK_MODEL* m = obj->model;
-    NJS_POINT3 c;
-    float z, r, sx, half;
-    /* third person: every room part; not a node without a model (hidden for good, cut.c bhSetCut
-       never touches it: drawing it read through a NULL model in 6/8, 7/25, 9/8, 9/17) */
-    if (tps_cam_active) return m != NULL && pc_is_room_object(obj);
-    if (pc_hor_scale() <= 1.0f || m == NULL || m->r <= 0 || !pc_is_room_object(obj)) return 0;
-    njCalcPoint(NULL, &m->center, &c);
-    if (c.z - m->r < _fNaViwClipNear) return 0;
-    z = fabsf(_nj_screen_.dist / c.z);
-    r = m->r * z * fNaViwAspectW;
-    sx = c.x * z;
-    half = _nj_screen_.w / 2.0f;
-    return sx - r > half || sx + r < -half;
+    if (obj->model == NULL || !pc_is_room_object(obj)) return 0;
+    return tps_cam_active || (pc_hor_scale() > 1.0f && pc_margin_part(obj));
 }
 #endif
 
@@ -810,13 +798,22 @@ int njCnkDrawModelLocal(NJS_CNK_MODEL* pModel)
         
         pCnkFuncTbl[pCnk->ucType](pCnk);
     }
-    
+
     njPopMatrixEx();
-    
-    if ((modelclipflag != 0) && (Vu0ClipFlag != 0)) 
+
+#ifdef TARGET_PC
+    /* hor+: a hidden room part in front of the player, drawn in the margins, is left out if it
+       reaches into the 4:3 view (pc/glue/native_glue.c) */
+    if ((pCnk != NULL) && pc_margin_reaches_43(&pNaCnkVerBufTop[((unsigned short*)pCnk)[2]], ((unsigned short*)pCnk)[3]))
     {
-        return 1;  
-    } 
+        return 0;
+    }
+#endif
+
+    if ((modelclipflag != 0) && (Vu0ClipFlag != 0))
+    {
+        return 1;
+    }
     
     if ((Ps2_njControl3D_flag & 0x8000)) 
     {
