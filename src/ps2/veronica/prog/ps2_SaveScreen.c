@@ -204,6 +204,9 @@ int ExecuteSaveScreen(SAVE_SCREEN* pSave)
 {
 #ifdef TARGET_PC   /* native saves: no memory card; its queued writes go to the save files */
     pSave->lCardState = pc_saves_native(pSave->ulState) ? pc_save_card(pSave->pMcState) : ExecuteMemoryCard(pSave->pMcState);
+
+    /* mouse in menus: hover moves the cursor, a click confirms (pc/glue/save_glue.c) */
+    pc_save_mouse(1, pSave->ulState, pSave->cCgFlag, &pSave->sCursorX, &pSave->sCursorY, &pSave->sSelectCur, pSave->pSelectFileWindow, pSave->pMcState);
 #else
     pSave->lCardState = ExecuteMemoryCard(pSave->pMcState);
 #endif
