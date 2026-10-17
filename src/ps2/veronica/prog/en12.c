@@ -1685,7 +1685,12 @@ void bhEne12_PlayerControl(BH_PWORK* epw)
 
             case 2:
                 if (plp->frm_no == 0) {
+#ifdef TARGET_PC   /* the PS2 code puts back the player's own set (lw from plp, SLUS 0x1D88D0); epw's left the player
+                      playing Alexia's set after her flames: frozen in the next hit, aim or step, which never ended */
+                    plp->mnwP = plp->mnwPb;
+#else
                     plp->mnwP= epw->mnwPb;
+#endif
                     plp->flg &= ~0x10004;
                     plp->flg2 &= ~0x1;
                     plp->flg |= 8;
