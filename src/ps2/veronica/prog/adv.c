@@ -2335,6 +2335,7 @@ int Adv_BioCvTitle()
         ap->Timer = 900.0f; 
 #ifdef TARGET_PC
         if (getenv("RECVX_FAST_DEMO")) ap->Timer = 1.0f;   /* testing: attract demo right away */
+        pc_intro_pressed(1);   /* PRESS START appears: only presses from now on open the menu */
 #endif
         
         ap->FlushCount = 0;
@@ -2376,7 +2377,8 @@ int Adv_BioCvTitle()
 #ifndef TARGET_PC
         else if (CheckStartButton() != 0) 
 #else
-        else if (CheckStartButton() != 0 || pc_skip_intro_press_start())   /* option: once after the boot, into the menu */
+        else if (CheckStartButton() != 0 || pc_skip_intro_press_start()   /* option: once after the boot, into the menu */
+                 || pc_intro_pressed(0) != 0)   /* any key, mouse or gamepad button, as Start (the menu reads the pad only after its fade-in) */
 #endif
         { 
             ap->FlushCount = 255.0f; 
