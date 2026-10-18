@@ -385,6 +385,8 @@ void bhInitEvent()
 void bhControlEvent()
 {
 #ifdef TARGET_PC
+    pc_unlock_scd1(0);   /* F2 cheat "Unlock all": a key's use spot sees the key used, as from the item screen (pc/glue/cheat_glue.c) */
+    
     if (coop_on)
     {
         coop_scd1(); /* the same per-frame script, traced: world events shared with the partner */
@@ -394,6 +396,9 @@ void bhControlEvent()
     bhScenarioCheck((unsigned char*)bhScd2Ptr);
     
     bhEventScheduler2();
+#ifdef TARGET_PC
+    pc_unlock_scd1(1);
+#endif
 }
 
 // 100% matching!
@@ -1392,6 +1397,12 @@ unsigned int bhPlItemCheck()
     /* PC option: the typewriters' ink ribbon check passes without one (pc/glue/coop_glue.c); not in 0/9,
        where the metal detector's script checks the same item (ink ribbons count as metal there) */
     if ((v0 == 31) && (pc_no_ink_ribbon() != 0) && !((sys->stg_no == 0) && (sys->rom_no == 9)))
+    {
+        return 1;
+    }
+    
+    /* F2 cheat "Unlock all": a key the room has a use spot for, checked to offer or open its lock (pc/glue/cheat_glue.c) */
+    if (pc_unlock_held(v0) != 0)
     {
         return 1;
     }

@@ -1716,6 +1716,9 @@ void bhControlPlayer()
         
         if ((plp->mode0 == 1) && (!(plp->stflg & 0x10080)) && (!(plp->flg & 0x4000004)) && (!(sys->cb_flg & 0x4017)) && ((sys->pad_ps & 0x200))) 
         {
+#ifdef TARGET_PC   /* F2 cheat "Unlock all": in a key's use spot the press uses the key (pc/glue/cheat_glue.c) */
+            if (pc_unlock_examine() == 0)
+#endif
             bhCheckExmAtari(plp);
         }
         
