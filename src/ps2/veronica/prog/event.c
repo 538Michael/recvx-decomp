@@ -742,6 +742,12 @@ unsigned int bhCmpB()
         break;
     }
 
+#ifdef TARGET_PC
+    if ((v3 == 8) && (v2 == 0) && (v0 == v1))
+    {
+        pc_unlock_item_tested();   /* F2 cheat "Unlock all": the script tests the item used, sb_id (pc/glue/cheat_glue.c) */
+    }
+#endif
     switch (v2)
     {
     case 0: 
@@ -1289,6 +1295,12 @@ unsigned int bhUseItemCheck()
     
     if ((sys->cb_flg & 0x400)) 
     {
+#ifdef TARGET_PC
+        if (sys->sb_id == v0)
+        {
+            pc_unlock_item_tested();   /* F2 cheat "Unlock all": the script tests the item used (pc/glue/cheat_glue.c) */
+        }
+#endif
         return sys->sb_id == v0;
     }
     
