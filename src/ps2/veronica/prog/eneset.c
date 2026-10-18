@@ -516,11 +516,11 @@ void bhControlEnemy()
                                 bhEne_InitDamage(ep);
                             }
                         }
+                    }
 
-                        if (pc_variant_n)
-                        {
-                            pc_variant_post(ep, i);
-                        }
+                    if (pc_variant_n)   /* (also a co-op puppet: its death plays from the dead flag) */
+                    {
+                        pc_variant_post(ep, i);
                     }
 
                     if (coop_on)

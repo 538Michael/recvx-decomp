@@ -19,6 +19,14 @@
 
 // ENEMY: Monster Steve 
 
+#ifdef TARGET_PC
+/* Mutated Steve, an enemy variant of this type (pc/glue/variant_glue.c, docs/ENEMIES.md "Enemy variants"): Monster
+   Steve outside his chase, who can die. Only for it: hits take his hit points and kill him (bhEne17_Die), his
+   killing blows are heavy ones (pc_steve_blow), and he drives neither room light 2 nor the camera. His chase
+   (a room record, no variant) runs as on the PS2. */
+#define PC_VARIANT(epw) (pc_variant_n && pc_variant_is(epw))
+#endif
+
 char En17_SdwTab[7] = { 2, 5, 15, 20, 9, 13, 255 };
 WPNDAMAGE_WORK En17_WpnDamageTbl[22] = 
 {
@@ -379,7 +387,11 @@ void bhEne17(BH_PWORK* epw)
 
     bhEne17_CollCheck(epw);
     bhEne17_CalcEnemy(epw);
+#ifdef TARGET_PC
+    if ((epw->mode0 < 5) && !PC_VARIANT(epw)) {   /* the variant shakes no camera */
+#else
     if (epw->mode0 < 5) {
+#endif
         bhEne17_CameraControl(epw);
     }
 
@@ -404,6 +416,9 @@ void bhEne17(BH_PWORK* epw)
         bhEff_SetPtcl2(epw, &pd, owk->mtx);
 
         ((int*)epw->exp0)[2] &= ~0x20000000;
+#ifdef TARGET_PC
+        if (!PC_VARIANT(epw))   /* the variant leaves the room's light 2 alone */
+#endif
         bhEne17_SetLight(epw, &pd);
         bhEne17_SePlay(epw, 0x01002309);
     }
@@ -438,6 +453,11 @@ int bhEne17_DmgChk(BH_PWORK* epw)
         
         if (epw->total_dam != 0) {
             bhEne17_DamageAdd(epw);
+#ifdef TARGET_PC
+            if (PC_VARIANT(epw)) {   /* the variant: the hit takes his hit points (the chase's never do) */
+                epw->hp -= epw->total_dam;
+            }
+#endif
             
             if (EXP0_UC(1) != 0) {
                 EXP0_I(8) |= 0x200;
@@ -455,6 +475,14 @@ int bhEne17_DmgChk(BH_PWORK* epw)
                 
                 bhEne17_ChgDmgMode(epw);
             }
+#ifdef TARGET_PC
+            if (PC_VARIANT(epw) && (epw->hp < 0)) {   /* the variant dies (bhEne17_Die) */
+                epw->mode0 = 4;
+                epw->mode1 = 0;
+                epw->mode2 = 0;
+                epw->mode3 = 0;
+            }
+#endif
         }
     }
 }
@@ -927,10 +955,29 @@ void bhEne17_Nage()
 {
 }
 
+#ifdef TARGET_PC
+/* The variant's death: dead as every enemy (flg & 2: the room script's DieCk sets its kill bit; the slot stays
+   until the room is left), his motion stopped where it was and no more attacks; the body shows the death it
+   borrows from another enemy (variant_glue.c: the Tyrant's fall, retargeted onto his model). The chase never
+   comes here. */
+void bhEne17_Die(BH_PWORK* epw)
+{
+    if (!PC_VARIANT(epw) || (epw->mode1 != 0)) {
+        return;
+    }
+
+    epw->flg |= 2;
+    epw->flg &= ~0x40000;
+    epw->flg2 &= ~1;
+    epw->mtn_add = 0;
+    epw->mode1 = 1;
+}
+#else
 // 100% matching!
 void bhEne17_Die()
 {
 }
+#endif
 
 // 100% matching!
 void bhEne17_Brain(BH_PWORK* epw)
@@ -1570,6 +1617,28 @@ void bhEne17_PlyDG01(BH_PWORK* pl, BH_PWORK* epw)
 }
 
 
+#ifdef TARGET_PC
+/* The variant's heavy blow in place of the chase's killing ones (his swing killed outright, his other heavy
+   blows below 120 hit points and took 120 otherwise): 50, as the Tyrant's heaviest, which the variant's
+   damage factor then scales (variant_glue.c pc_variant_post; 1.25: 63), so a player at full health always
+   survives one; the player is knocked down as by the 120-point blow, or dies with no hit points left. */
+static void pc_steve_blow(BH_PWORK* pl)
+{
+    pl->hp -= 50;
+
+    if (pl->hp < 0) {
+        pl->hp = -1;
+    } else {
+        pl->mode0 = 4;
+        pl->mode1 = 0;
+        pl->mode3 = 0;
+        pl->mode2 = 0;
+    }
+
+    pl->flg |= 4;
+}
+#endif
+
 // 100% matching!
 int bhEne17_PlayerDGCheck(BH_PWORK* epw, BH_PWORK* pl) 
 {
@@ -1621,6 +1690,11 @@ int bhEne17_PlayerDGCheck(BH_PWORK* epw, BH_PWORK* pl)
                 return 1;
             }
             
+#ifdef TARGET_PC
+            if (PC_VARIANT(epw)) {
+                pc_steve_blow(pl);
+            } else
+#endif
             if (epw->mtn_no == 2) {
                 pl->hp = -1;
             } else {
