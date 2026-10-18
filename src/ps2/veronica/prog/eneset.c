@@ -152,6 +152,7 @@ JumpEnemy_proc bhJumpEnemy[100] =
 	bhSubpl
 };
 #ifdef TARGET_PC
+#include "pc_rules.h"
 /* Helper code (docs/ENEMIES.md "Budgets on the PC"): the parts and children an enemy spawns get ids 31..38 and
    run whatever bhEne_SetCallFunc put in bhJumpEnemy[31..38] last - on the PS2 one function per
    id, so two types using them in one room ran each other's code. Here each child runs the
@@ -178,23 +179,14 @@ static BH_PWORK* pc_running;               /* the enemy whose code runs (bhContr
    an enemy against the partner's work (coop_glue.c swaps plp). */
 static struct { BH_PWORK* pl; BH_PWORK* by; } pc_held[2];
 
-static BH_PWORK* pc_root(BH_PWORK* ep)   /* a part's or child's parent enemy */
-{
-    int n;
-    for (n = 0; n < 3 && ep->lkwkp && (BH_PWORK*)ep->lkwkp >= ene && (BH_PWORK*)ep->lkwkp < ene + 128; n++) ep = (BH_PWORK*)ep->lkwkp;
-    return ep;
-}
+static BH_PWORK* pc_root(BH_PWORK* ep) { return pc_root_in(ep, ene, 128); }   /* a part's or child's parent enemy (pc_rules.h) */
 
 /* ep counts as the holder `by`'s family: its part or child, or the leader of by's type. A moth's
    and a Black Widow's grab is started by the body (player busy flag) and played by the type's
    leader, an unlinked enemy of the same id the first body's Init made (en06.c bhEne06_PlayerControl,
    en03.c bhEne03_PlayerControl), shared by all bodies of the type. Without it the leader's
    control was undone and the player stayed grabbed for good. */
-static int pc_family(BH_PWORK* ep, BH_PWORK* by)
-{
-    BH_PWORK* r = pc_root(by);
-    return pc_root(ep) == r || (!ep->lkwkp && ep >= ene && ep < ene + 128 && ep->id == r->id && pc_owner[ep - ene] == r->id + 1);
-}
+static int pc_family(BH_PWORK* ep, BH_PWORK* by) { return pc_family_in(ep, by, ene, 128, pc_owner); }
 
 /* the room gets enemies its file does not have (spawn_glue.c): the shared functions its children
    made so far run are the ones in place now (pc_snap). Taken at the next enemy step instead, a room
@@ -244,10 +236,7 @@ static void pc_call_enemy(BH_PWORK* ep, int slot)
     JumpEnemy_proc f = bhJumpEnemy[ep->id];
     int o = slot < 128 ? pc_owner[slot] : 0, h, busy;
     BH_PWORK* pl = plp;
-    if (pc_enemy_added && ep->id >= 31 && ep->id <= 38) {
-        if (o && pc_retail[slot]) { if (pc_snap[ep->id - 31]) f = pc_snap[ep->id - 31]; }
-        else if (o && pc_helper[o - 1][ep->id - 31]) f = pc_helper[o - 1][ep->id - 31];
-    }
+    if (pc_enemy_added) f = pc_enemy_proc(f, ep->id, o, slot < 128 && pc_retail[slot], pc_snap, o ? pc_helper[o - 1] : NULL);
     pc_running = ep;
     if (!pc_enemy_added || !pl) {
         f(ep);
