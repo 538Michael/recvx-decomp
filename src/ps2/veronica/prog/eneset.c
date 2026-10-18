@@ -167,7 +167,6 @@ static JumpEnemy_proc pc_helper[100][8];   /* [creator type][id - 31] */
 static unsigned char pc_owner[128];        /* slot -> creator type + 1; 0: made outside an enemy's code (room load, spawner) */
 static unsigned char pc_retail[128];       /* slot made while the room had no added enemies (children only: o != 0) */
 static JumpEnemy_proc pc_snap[8];          /* bhJumpEnemy[31..38] when the room got added enemies */
-static int pc_snapped;
 static BH_PWORK* pc_running;               /* the enemy whose code runs (bhControlEnemy) */
 
 /* One enemy at a time takes a player. An enemy's code that sets the player's busy flag (flg & 4:
@@ -195,6 +194,17 @@ static int pc_family(BH_PWORK* ep, BH_PWORK* by)
 {
     BH_PWORK* r = pc_root(by);
     return pc_root(ep) == r || (!ep->lkwkp && ep >= ene && ep < ene + 128 && ep->id == r->id && pc_owner[ep - ene] == r->id + 1);
+}
+
+/* the room gets enemies its file does not have (spawn_glue.c): the shared functions its children
+   made so far run are the ones in place now (pc_snap). Taken at the next enemy step instead, a room
+   that got them at load, before any step, kept the previous room's. */
+void pc_enemy_mark_added(void)
+{
+    int h;
+    if (!pc_enemy_added)
+        for (h = 0; h < 8; h++) pc_snap[h] = bhJumpEnemy[31 + h];
+    pc_enemy_added = 1;
 }
 
 void pc_enemy_watch(BH_PWORK* ep, int slot, int ran);   /* coop_glue.c */
@@ -234,8 +244,6 @@ static void pc_call_enemy(BH_PWORK* ep, int slot)
     JumpEnemy_proc f = bhJumpEnemy[ep->id];
     int o = slot < 128 ? pc_owner[slot] : 0, h, busy;
     BH_PWORK* pl = plp;
-    if (!pc_enemy_added) pc_snapped = 0;
-    else if (!pc_snapped) { for (h = 0; h < 8; h++) pc_snap[h] = bhJumpEnemy[31 + h]; pc_snapped = 1; }
     if (pc_enemy_added && ep->id >= 31 && ep->id <= 38) {
         if (o && pc_retail[slot]) { if (pc_snap[ep->id - 31]) f = pc_snap[ep->id - 31]; }
         else if (o && pc_helper[o - 1][ep->id - 31]) f = pc_helper[o - 1][ep->id - 31];
