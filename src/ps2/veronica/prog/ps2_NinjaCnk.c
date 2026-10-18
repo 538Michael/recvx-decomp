@@ -596,6 +596,9 @@ void    njCnkEasyDrawObject( NJS_CNK_OBJECT *model )
             lDrawResult = njCnkDrawModelLocal(model->model);
         }
     
+#ifdef TARGET_PC
+        int pc_groups = pc_margin_children(model);   /* hor+: a hidden part left out takes what it holds along */
+#endif
         if (!(ulFlags & 0x10)) 
         {
             if ((!(ulFlags & 0x100)) || (lDrawResult != 0)) 
@@ -604,6 +607,9 @@ void    njCnkEasyDrawObject( NJS_CNK_OBJECT *model )
             }
         }
     
+#ifdef TARGET_PC
+        pc_margin_children_end(pc_groups);
+#endif
         njPopMatrixEx();
     }
 }
@@ -658,6 +664,9 @@ void    njCnkEasyMultiDrawObject( NJS_CNK_OBJECT *model )
             lDrawResult = njCnkDrawModelLocal(model->model);
         }
     
+#ifdef TARGET_PC
+        int pc_groups = pc_margin_children(model);   /* hor+: a hidden part left out takes what it holds along */
+#endif
         if (!(ulFlags & 0x10)) 
         {
             if ((!(ulFlags & 0x100)) || (lDrawResult != 0)) 
@@ -666,6 +675,9 @@ void    njCnkEasyMultiDrawObject( NJS_CNK_OBJECT *model )
             }
         }
     
+#ifdef TARGET_PC
+        pc_margin_children_end(pc_groups);
+#endif
         njPopMatrixEx();
     }
 }
@@ -3171,6 +3183,9 @@ void njCnkEasyMultiDrawObjectI(NJS_CNK_OBJECT* pObject)
             lDrawResult = njCnkDrawModelLocal(pObject->model);
         }
     
+#ifdef TARGET_PC
+        int pc_groups = pc_margin_children(pObject);   /* hor+: a hidden part left out takes what it holds along */
+#endif
         if (!(ulFlags & 0x10)) 
         {
             if ((!(ulFlags & 0x100)) || (lDrawResult != 0)) 
@@ -3179,6 +3194,9 @@ void njCnkEasyMultiDrawObjectI(NJS_CNK_OBJECT* pObject)
             }
         }
     
+#ifdef TARGET_PC
+        pc_margin_children_end(pc_groups);
+#endif
         njPopMatrixEx();
     }
 }
