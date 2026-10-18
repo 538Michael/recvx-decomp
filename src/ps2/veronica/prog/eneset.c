@@ -158,10 +158,16 @@ JumpEnemy_proc bhJumpEnemy[100] =
    function its own creator's type registered: the creator is the enemy whose code runs when
    bhSetEnemy takes the slot. Only in rooms the PC added enemies to (pc_enemy_added: the F2
    spawner, the enemy options), so retail rooms run as on the PS2 (RM_6030 mixes a zombie with
-   moths); a room with one such type calls the same function either way. */
+   moths); a room with one such type calls the same function either way. A child made before the
+   room got added enemies keeps the shared function it ran until then (pc_retail, pc_snap): the F2
+   spawner in RM_6030 switched the zombie's parts, run by the moths' bhEne06s there, to the zombie's
+   code with a moth child's state (crash). */
 int pc_enemy_added;
 static JumpEnemy_proc pc_helper[100][8];   /* [creator type][id - 31] */
 static unsigned char pc_owner[128];        /* slot -> creator type + 1; 0: made outside an enemy's code (room load, spawner) */
+static unsigned char pc_retail[128];       /* slot made while the room had no added enemies (children only: o != 0) */
+static JumpEnemy_proc pc_snap[8];          /* bhJumpEnemy[31..38] when the room got added enemies */
+static int pc_snapped;
 static BH_PWORK* pc_running;               /* the enemy whose code runs (bhControlEnemy) */
 
 /* One enemy at a time takes a player. An enemy's code that sets the player's busy flag (flg & 4:
@@ -228,7 +234,12 @@ static void pc_call_enemy(BH_PWORK* ep, int slot)
     JumpEnemy_proc f = bhJumpEnemy[ep->id];
     int o = slot < 128 ? pc_owner[slot] : 0, h, busy;
     BH_PWORK* pl = plp;
-    if (pc_enemy_added && ep->id >= 31 && ep->id <= 38 && o && pc_helper[o - 1][ep->id - 31]) f = pc_helper[o - 1][ep->id - 31];
+    if (!pc_enemy_added) pc_snapped = 0;
+    else if (!pc_snapped) { for (h = 0; h < 8; h++) pc_snap[h] = bhJumpEnemy[31 + h]; pc_snapped = 1; }
+    if (pc_enemy_added && ep->id >= 31 && ep->id <= 38) {
+        if (o && pc_retail[slot]) { if (pc_snap[ep->id - 31]) f = pc_snap[ep->id - 31]; }
+        else if (o && pc_helper[o - 1][ep->id - 31]) f = pc_helper[o - 1][ep->id - 31];
+    }
     pc_running = ep;
     if (!pc_enemy_added || !pl) {
         f(ep);
@@ -379,6 +390,7 @@ BH_PWORK* bhSetEnemy(EGG_WORK* etp, int unused) // second parameter is not prese
             epp->idx_ct = i;
 #ifdef TARGET_PC
             if (i < 128) pc_owner[i] = pc_running && pc_running->id < 100 ? pc_running->id + 1 : 0;
+            if (i < 128) pc_retail[i] = !pc_enemy_added;
 #endif
             
             epp->sxb = 1.0f;
