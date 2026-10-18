@@ -3058,9 +3058,17 @@ void Com_ExecCallBgm_And_BgSe()
 
 }
 
+#ifdef TARGET_PC
+void cheat_warp_sound(int after);   /* a room change without a door (teleport, co-op follow): the door scripts' music part (pc/glue/cheat_glue.c) */
+#endif
+
 // 100% matching!
 void Com_StartInitScript()
 {
+#ifdef TARGET_PC
+    cheat_warp_sound(0);
+    
+#endif
     StartInitScriptFlag = 1;
     
     ResetEnemySeInfo();
@@ -3082,7 +3090,9 @@ void Com_StartInitScript()
 // 100% matching!
 void Com_FinishInitScript() 
 {
-
+#ifdef TARGET_PC
+    cheat_warp_sound(1);
+#endif
 }
 
 // 100% matching! 
