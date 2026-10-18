@@ -354,6 +354,9 @@ void bhInitEvent()
     }
     
     SendSoundCommand(3);
+#ifdef TARGET_PC
+    pc_unlock_room();   /* F2 cheat "Unlock all": the entry script's key checks are noted for a switch in the room (pc/glue/cheat_glue.c) */
+#endif
     
     bhControlEnemy();
 
