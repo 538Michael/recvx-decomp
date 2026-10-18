@@ -1264,10 +1264,12 @@ void bhEff137(O_WRK* op)
 }
 
 // 100% matching!
-void bhDraw138(O_WRK* op) 
+void bhDraw138(O_WRK* op)
 {
 #ifdef TARGET_PC
-    if (!pc_overlay_begin(PC_OVL_EFFECT)) return;
+    /* the oil pressure puzzle's screen, not an effect layer: "Screen effects" sets its width
+       only, Off draws it as Original (4:3) instead of leaving the puzzle black */
+    pc_overlay_begin(PC_OVL_EFFECT);
 #endif
     NJS_POINT2COL p2c;           
     NJS_POINT2 p[4];     
