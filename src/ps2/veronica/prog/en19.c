@@ -430,6 +430,22 @@ static void bhEne19_Init(BH_PWORK* ewP)
     }
 }
 
+#ifdef TARGET_PC
+/* the player can be pushed to pos without crossing a wall (a line at waist height, as hitchkl.c tests a shot's) */
+static int pc_ty_push_ok(NJS_POINT3* pos)
+{
+    NJS_POINT3 p1, p2;
+
+    p1.x = plp->px;
+    p1.y = plp->py + 10.0f;
+    p1.z = plp->pz;
+    p2.x = pos->x;
+    p2.y = p1.y;
+    p2.z = pos->z;
+    return bhCollisionCheckLine2(&p1, &p2, 0x4400, (char)plp->flr_no) == NULL;
+}
+#endif
+
 // 100% matching!
 static void bhEne19_Move(BH_PWORK* ewP) 
 {
@@ -489,7 +505,14 @@ static void bhEne19_Move(BH_PWORK* ewP)
         
         pos = *(NJS_POINT3*)&plp->px;
 
+#ifdef TARGET_PC
+        /* in a room the PC added enemies to (a spawned or randomized Tyrant, a corridor): its body (an oval up
+           to 16 units long) turning against a player lying beside it pushed the player through the wall in one
+           tick (bhCheckWall did not take it back); a push across a wall is left out */
+        if ((bhEne19_CollisionCircle2Oval(mtxP, ewP->car * fwP->ovl_rte, ewP->car, &pos, plp->car) != 0) && (!pc_enemy_added || pc_ty_push_ok(&pos)))
+#else
         if (bhEne19_CollisionCircle2Oval(mtxP, ewP->car * fwP->ovl_rte, ewP->car, &pos, plp->car) != 0)
+#endif
         {
             plp->px = pos.x;
             plp->pz = pos.z;

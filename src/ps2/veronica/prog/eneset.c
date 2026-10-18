@@ -504,7 +504,23 @@ void bhControlEnemy()
 
                     if (ran)
                     {
-                        pc_call_enemy(ep, i);
+                        /* enemy variants (pc/glue/variant_glue.c): their factors around the step; speed: 0..2 steps */
+                        int runs = pc_variant_n ? pc_variant_pre(ep, i) : 1;
+
+                        while (runs-- > 0)
+                        {
+                            pc_call_enemy(ep, i);
+
+                            if (runs > 0)
+                            {
+                                bhEne_InitDamage(ep);
+                            }
+                        }
+
+                        if (pc_variant_n)
+                        {
+                            pc_variant_post(ep, i);
+                        }
                     }
 
                     if (coop_on)
@@ -958,7 +974,8 @@ void bhDrawEnemy()
                 if ((sys->st_flg & 0x20))
                 {
 #ifdef TARGET_PC
-                    if (!actor_on || !actor_put_enemy(ep))   /* the character played's cutscene double as another model */
+                    if (!(pc_variant_n && pc_variant_draw(ep)) &&   /* an enemy variant's model or size */
+                        (!actor_on || !actor_put_enemy(ep)))        /* the character played's cutscene double as another model */
 #endif
                     bhPutModel(ep);
                 }
@@ -1000,7 +1017,7 @@ void bhDrawEnemy()
                     else 
                     {
 #ifdef TARGET_PC
-                        if (!actor_on || !actor_put_enemy(ep))
+                        if (!(pc_variant_n && pc_variant_draw(ep)) && (!actor_on || !actor_put_enemy(ep)))
 #endif
                         bhPutModel(ep);
                     }

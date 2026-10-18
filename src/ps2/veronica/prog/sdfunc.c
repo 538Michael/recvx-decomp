@@ -1798,8 +1798,9 @@ void CallDoorSe(unsigned int No)
 #ifdef TARGET_PC
 /* Enemy sounds of types the room's bank 3 lacks (docs/ENEMIES.md "Sounds of added types"): per request, the extra bank the
    spawner loaded for the requesting enemy's type (spawn_glue.c; 0: the room's, -1: none, silence),
-   used when the sound manager plays it (CallEnemySeMain) */
-static signed char pc_enemy_se_bank[128];
+   used when the sound manager plays it (CallEnemySeMain); [1]: its voice channel's (SeNoV: an enemy variant's
+   voice comes from a bank of its own, pc/glue/variant_glue.c) */
+static signed char pc_enemy_se_bank[2][128];
 int spawn_sound_bank(int enemy_no);
 extern int pc_se_xbank;
 #endif
@@ -1813,7 +1814,12 @@ void RequestEnemySeBasic(int EnemyNo, NJS_POINT3* pPos, int SeNo, int Flag, int 
     eip = EnemyInfo; 
     eip = &eip[EnemyNo];
 #ifdef TARGET_PC
-    pc_enemy_se_bank[EnemyNo & 127] = (signed char)spawn_sound_bank(EnemyNo);
+    pc_enemy_se_bank[(SeNo & 0xF000000) != 0][EnemyNo & 127] = (signed char)spawn_sound_bank(EnemyNo);
+
+    if (pc_variant_n)   /* an enemy variant's own sounds for some of its base's (pc/glue/variant_glue.c) */
+    {
+        SeNo = pc_variant_sound(EnemyNo, SeNo, &pc_enemy_se_bank[(SeNo & 0xF000000) != 0][EnemyNo & 127]);
+    }
 #endif
     
     eip->Pos = *pPos;
@@ -2429,7 +2435,7 @@ void CallEnemySeMain(unsigned int SlotNo, int SeNo, char Pan, char Vol, int Flag
 #ifdef TARGET_PC
         if (RequestInfo.BankNo == 3)
         {
-            pc_se_xbank = pc_enemy_se_bank[EnemySlotInfo[SlotNo].EnemyNo & 127];
+            pc_se_xbank = pc_enemy_se_bank[(SeNo & 0xF000000) != 0][EnemySlotInfo[SlotNo].EnemyNo & 127];
             
             if (pc_se_xbank < 0)
             {
