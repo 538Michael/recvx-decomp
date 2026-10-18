@@ -180,6 +180,17 @@ static BH_PWORK* pc_root(BH_PWORK* ep)   /* a part's or child's parent enemy */
     return ep;
 }
 
+/* ep counts as the holder `by`'s family: its part or child, or the leader of by's type. A moth's
+   and a Black Widow's grab is started by the body (player busy flag) and played by the type's
+   leader, an unlinked enemy of the same id the first body's Init made (en06.c bhEne06_PlayerControl,
+   en03.c bhEne03_PlayerControl), shared by all bodies of the type. Without it the leader's
+   control was undone and the player stayed grabbed for good. */
+static int pc_family(BH_PWORK* ep, BH_PWORK* by)
+{
+    BH_PWORK* r = pc_root(by);
+    return pc_root(ep) == r || (!ep->lkwkp && ep >= ene && ep < ene + 128 && ep->id == r->id && pc_owner[ep - ene] == r->id + 1);
+}
+
 void pc_enemy_watch(BH_PWORK* ep, int slot, int ran);   /* coop_glue.c */
 void pc_enemy_unhold(BH_PWORK* ep);
 void host_log(const char* fmt, ...);
@@ -231,7 +242,7 @@ static void pc_call_enemy(BH_PWORK* ep, int slot)
         pc_held[h].by = NULL;
     }
     if (pc_held[h].by && (!(pl->flg & 0x4) || !(pc_held[h].by->flg & 0x1))) pc_held[h].by = NULL;
-    if (pc_held[h].by && pc_root(ep) != pc_root(pc_held[h].by)) {
+    if (pc_held[h].by && !pc_family(ep, pc_held[h].by)) {
         BH_PWORK keep = *pl;
         f(ep);
         busy = pl->mode0 != keep.mode0 && (pl->mode0 == 4 || pl->mode0 == 6);   /* it started a grab */
