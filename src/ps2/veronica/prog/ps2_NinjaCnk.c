@@ -741,6 +741,17 @@ int njCnkDrawModelLocal(NJS_CNK_MODEL* pModel)
                 return 0;
             }
             
+#ifdef TARGET_PC
+            /* third person and hor+: the sphere against the view's planes, with a margin (pc/glue/view_glue.c) */
+            switch (pc_model_clip(&Center, temp))
+            {
+            case -1:
+                return 0;
+            case 1:
+                goto pc_clip_done;
+            }
+#endif
+            
             fZ = fabsf(_nj_screen_.dist / Center.z);
             
             temp2 = temp * fZ;
@@ -771,6 +782,9 @@ int njCnkDrawModelLocal(NJS_CNK_MODEL* pModel)
             {
                 return 0;
             }
+#ifdef TARGET_PC
+        pc_clip_done: ;
+#endif
         }
     }
 
