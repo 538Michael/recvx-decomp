@@ -367,8 +367,16 @@ void bhDrawScope()
         
         p[3].x = 0;
         p[3].y = 480.0f;
-        
+
+#ifdef TARGET_PC   /* the lens tint is a screen effect layer: the whole width in widescreen as set, the reticle stays 4:3 */
+        if (pc_overlay_begin(PC_OVL_EFFECT))
+        {
+            njDrawPolygon2D(&p2c, 4, -0.92f, 96);
+            pc_overlay_end();
+        }
+#else
         njDrawPolygon2D(&p2c, 4, -0.92f, 96);
+#endif
 
         col[3].color = col[2].color = col[1].color = col[0].color = -1;
         
