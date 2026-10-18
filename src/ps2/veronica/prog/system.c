@@ -2617,6 +2617,9 @@ void bhExitGame()
     njGarbageTexture(tbuf, 256); 
     
     njSetBackColor(0x00000000, 0x00000000, 0x00000000);  
+#ifdef TARGET_PC
+    cheat_game_exit();   /* a warp or unlock left from this game ends with it (pc/glue/cheat_glue.c) */
+#endif
     
     bhInitSystem(); 
 } 
