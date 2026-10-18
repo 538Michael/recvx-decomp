@@ -557,8 +557,16 @@ void mcDisplayFileSelectWindow(SELECTFILEWINDOW* pWin, float fX, float fY, unsig
     SELECTFILEINFO* pFileInfo; 
     unsigned int ulDispCount; 
 
+#ifdef TARGET_PC   /* native saves: "Load Game" / "Save Game" instead of MEMORY CARD slot n (pc/glue/save_glue.c) */
+    if (!pc_save_header())
+    {
+        bhDispMessage(140.0f, 32.0f, 0, 1, 463, 0, 0);
+        bhDispMessage(420.0f, 32.0f, 0, 1, port + 464, 0, 0);
+    }
+#else
     bhDispMessage(140.0f, 32.0f, 0, 1, 463, 0, 0);
     bhDispMessage(420.0f, 32.0f, 0, 1, port + 464, 0, 0);
+#endif
 
     mcDispWindowCurSol(pWin, 32.0f, 103.0f); 
     mcDispWindowFoundtion(16.0f, 96.0f, 616.0f, 310.0f, pWin->ulfoundationColor);
