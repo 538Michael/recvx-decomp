@@ -6725,9 +6725,13 @@ void bhEff110(O_WRK* op)
             break;
         }
         
-        if ((op->type > 0) && (op->mode0 != 0)) 
+        if ((op->type > 0) && (op->mode0 != 0))
         {
+#ifdef TARGET_PC   /* the cut's under-water view is the fixed camera's: not with the third-person camera (tps_glue.c) */
+            if ((cam.flg & 0x20) && !tps_own_view())
+#else
             if ((cam.flg & 0x20))
+#endif
             {
                 if (!(sys->gm_flg & 0x100))
                 {
