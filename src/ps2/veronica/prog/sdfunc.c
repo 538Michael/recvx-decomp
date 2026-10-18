@@ -3266,6 +3266,45 @@ void ExecFileManager()
     }
 }
 
+#ifdef TARGET_PC
+/* the ending movie (MV_021) and the credits (MV_015), both started by room 9/36's last event, cannot be
+   skipped on the PS2 (MovieTypeDef 0x82, 0x80). Here any key, mouse or gamepad button pressed since the
+   movie began skips it with the intro's fade (picture and sound down over 30 frames); the game's own
+   cancel button counts only as such a press, so a held or carried-over one does not skip */
+static int PcAnyKeyMovie;   /* such a movie's pictures, 0 for the others */
+
+/* the play time counts on through these movies (vsync_func: the game task stays on): a skip adds the
+   vblanks the movie had left, so the results (time, rank) are those of the movie watched to its end */
+static void PcMovieSkipTime()
+{
+    int left;
+
+    if (((sys->tk_flg & 0x80)) && ((sys->gm_flg & 0x80000000)) && (sys->time < 216000000))
+    {
+        left = pc_movie_vblanks_left(PcAnyKeyMovie);
+
+        sys->time = (left < 216000000 - sys->time) ? sys->time + left : 216000000;
+    }
+}
+
+static int PcMovieCancelPressed()
+{
+    if (PcAnyKeyMovie == 0)
+    {
+        return (rmi.MVCancelButton & Pad[CurrentPortId].press) != 0;
+    }
+
+    if (pc_intro_pressed(0) == 0)
+    {
+        return 0;
+    }
+
+    pc_intro_pressed(1);
+
+    return 1;
+}
+#endif
+
 // 100% matching! 
 int PlayStartMovieEx(int MovieNo, int MovieType, int PauseFlag)
 {
@@ -3315,6 +3354,16 @@ int PlayStartMovieEx(int MovieNo, int MovieType, int PauseFlag)
         SetSfdDislpaySize(MovieDef[Type].dPosX, MovieDef[Type].dPosY, MovieDef[Type].dSizeX, MovieDef[Type].dSizeY);
     }
 
+#ifdef TARGET_PC
+    PcAnyKeyMovie = (MovieNo == 15) ? 9897 : (MovieNo == 21) ? 2257 : 0;   /* ponytail: the disc's picture counts; a replaced movie keeps them */
+
+    if (PcAnyKeyMovie != 0)
+    {
+        MovieType |= 0x3;   /* cancel, with a fade */
+
+        pc_intro_pressed(1);   /* the movie begins: only presses from now on skip it */
+    }
+#endif
     MovieInfo.MovieCancelFlag = ((MovieTypeDef[MovieNo] & 0x80) == 0) ? 1 : 0;
     
     if ((MovieType & 0x1))
@@ -3411,8 +3460,18 @@ int WaitPrePlayMovie()
             return 3;
         }
         
+#ifdef TARGET_PC
+        if ((MovieInfo.MovieCancelFlag != 0) && (PcMovieCancelPressed() != 0)) 
+#else
         if ((MovieInfo.MovieCancelFlag != 0) && ((rmi.MVCancelButton & Pad[CurrentPortId].press))) 
+#endif
         {
+#ifdef TARGET_PC
+            if (PcAnyKeyMovie != 0)
+            {
+                PcMovieSkipTime();
+            }
+#endif
             PlayStopMovie();
             
             return 2;
@@ -3456,7 +3515,11 @@ int PlayMovieMain()
         
         if (MovieInfo.MovieCancelFlag != 0)
         {
+#ifdef TARGET_PC
+            if (PcMovieCancelPressed() != 0) 
+#else
             if ((rmi.MVCancelButton & Pad[CurrentPortId].press)) 
+#endif
             {
                 if (MovieInfo.MovieFadeFlag == 0) 
                 {
@@ -3469,6 +3532,12 @@ int PlayMovieMain()
                 {
                     MovieInfo.MovieFadeMode = 1;
                     
+#ifdef TARGET_PC
+                    if (PcAnyKeyMovie != 0)
+                    {
+                        sys->fade_an = 0;   /* the room's black fade (FadeSet before the movie) is still up behind it: fade from the picture */
+                    }
+#endif
                     bhSetScreenFade(0xFF000000, MovieInfo.FrameCnt);
                 }
             }
@@ -3478,6 +3547,12 @@ int PlayMovieMain()
         {
             if (!(sys->cb_flg & 0x2)) 
             {
+#ifdef TARGET_PC
+                if (PcAnyKeyMovie != 0)
+                {
+                    PcMovieSkipTime();
+                }
+#endif
                 PlayStopMovie();
                 
                 return 2;
