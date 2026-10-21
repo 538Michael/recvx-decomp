@@ -1721,6 +1721,12 @@ void bhControlPlayer()
 #endif
             bhCheckExmAtari(plp);
         }
+#ifdef TARGET_PC   /* GAMEPLAY "Auto-climb stairs": walking into stairs climbs them as the press would (pc/glue/stairs_glue.c) */
+        else if (pc_auto_stairs())
+        {
+            bhCheckExmAtari(plp);
+        }
+#endif
         
         if (plp->exp1 != NULL)
         {
