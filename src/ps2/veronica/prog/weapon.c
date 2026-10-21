@@ -510,6 +510,9 @@ int bhCheckGunAtari(GA_WORK* gap)
     O_WRK* op;        // not from DWARF
     float px, py, pz; // not from DWARF 
     static int igct;     
+#ifdef TARGET_PC
+    int prec, d0;
+#endif
     
     wno = gap->wpn_no;
     
@@ -520,6 +523,10 @@ int bhCheckGunAtari(GA_WORK* gap)
     
     wp_flg = WpnTab[wno].flg;
     wp_hef = WpnTab[wno].hiteff;
+#ifdef TARGET_PC   /* third person, "Precise hits": the player's hitscan shot (not a projectile: arrows, launchers) hits only
+                      the enemies' bodies (tps_glue.c pc_precise_hit); 0: the game's test */
+    prec = (wp_flg & 0x30000000) == 0x10000000 && pc_precise_hits();
+#endif
     
     if (((gap->at_flg & 0x4)) && ((wp_flg & 0x5000))) 
     {
@@ -666,6 +673,16 @@ int bhCheckGunAtari(GA_WORK* gap)
             else 
             {
 label_1:
+#ifdef TARGET_PC
+                if (prec)
+                {
+                    if ((kno = pc_precise_hit(pp, gap->wpn_no, &gatr.c1.x, &gatr.c2.x, &ps.x)) >= 0)
+                    {
+                        goto label_2;
+                    }
+                }
+                else
+#endif
                 if (!(wp_flg & 0x8)) 
                 { 
                     if (npCollisionCheckCCEx(&gatr, &pp->watr, &ap) != 0)
@@ -735,7 +752,22 @@ label_2:
                                     
                                     pp->wpnr_no = gap->wpn_no;
                                     
+#ifdef TARGET_PC   /* precise: this enemy's own hit point, joint and range (the game: the nearest enemy's) */
+                                    if (prec)
+                                    {
+                                        px = ps.x;
+                                        py = ps.y;
+                                        pz = ps.z;
+
+                                        jno = kno;
+
+                                        nr = ll;
+                                    }
+
+                                    if (!(wp_flg & 0x8) && !prec)
+#else
                                     if (!(wp_flg & 0x8)) 
+#endif
                                     {
                                         kno = 0;
                                         knr = 0;
@@ -761,6 +793,9 @@ label_2:
                                     }
                                     
                                     pp->djnt_no = kno;
+#ifdef TARGET_PC
+                                    d0 = pp->dam[kno];
+#endif
                                     
                                     if (nr < 15.0f) 
                                     {
@@ -780,6 +815,9 @@ label_2:
                                         
                                         pp->comb_flg |= 0x40;
                                     }
+#ifdef TARGET_PC
+                                    pc_precise_dam(pp, kno, d0, prec, gap->wpn_no);
+#endif
                                 }
                             }
                         }
@@ -808,7 +846,11 @@ label_2:
         
         pp->wpnr_no = gap->wpn_no;
         
+#ifdef TARGET_PC
+        if (!(wp_flg & 0x8) && !prec)
+#else
         if (!(wp_flg & 0x8)) 
+#endif
         {
             kno = 0; 
             knr = 0;
@@ -834,6 +876,9 @@ label_2:
         }
         
         pp->djnt_no = kno;
+#ifdef TARGET_PC
+        d0 = pp->dam[kno];
+#endif
         
         if (nr < 15.0f)
         {
@@ -853,6 +898,9 @@ label_2:
             
             pp->comb_flg |= 0x40;
         } 
+#ifdef TARGET_PC
+        pc_precise_dam(pp, kno, d0, prec, gap->wpn_no);
+#endif
         
         if ((wp_flg & 0x20000000))
         {

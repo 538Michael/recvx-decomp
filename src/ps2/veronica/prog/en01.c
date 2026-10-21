@@ -3716,6 +3716,13 @@ void bhEne01_DmgCheckType00(BH_PWORK* epw)
 // 100% matching!
 int bhEne01_CheckExpHead(BH_PWORK* epw)
 {
+#ifdef TARGET_PC   /* third person, "Precise hits" (tps_glue.c): a shot that hit the head (joint 11), not earlier head damage, a
+                      near body hit or one aimed up */
+    if (pc_precise_head(epw))
+    {
+        return epw->dam[11] > 0;
+    }
+#endif
     if (EXP0_I(0x78) > 0)
     {
         return 1;
