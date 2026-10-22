@@ -2318,7 +2318,11 @@ void bhSysCallMonitor()
 #endif
     }
 
-    if ((NowLoadDisp != 0) && (sys->mes_sp != NULL)) 
+#ifdef TARGET_PC   /* "Now loading..." (message 491) left out with fast loading: the loads are short */
+    if ((NowLoadDisp != 0) && (sys->mes_sp != NULL) && (!pc_fast_load()))
+#else
+    if ((NowLoadDisp != 0) && (sys->mes_sp != NULL))
+#endif
     {
         bhDispMessage(400.0f, 400.0f, -0.9f, 1, 491, 0, 0);
     } 
