@@ -392,6 +392,8 @@ void bhControlEvent()
     
     if (coop_on)
     {
+        pc_detector_scd1(); /* co-op rule "Metal detector: Skipped": the empty security boxes of 0/9 rest (pc/glue/detector_glue.c) */
+        
         coop_scd1(); /* the same per-frame script, traced: world events shared with the partner */
     }
     else
@@ -1420,6 +1422,12 @@ unsigned int bhPlItemCheck()
     if (pc_unlock_held(v0) != 0)
     {
         return 1;
+    }
+    
+    /* co-op rule "Metal detector: Skipped": in 0/9 every PlItemCheck is the detector's metal check (pc/glue/detector_glue.c) */
+    if (pc_detector_skipped() != 0)
+    {
+        return 0;
     }
     
 #endif
