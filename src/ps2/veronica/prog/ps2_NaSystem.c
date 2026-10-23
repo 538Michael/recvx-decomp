@@ -66,8 +66,20 @@ void 	njSetEORFunction( void (*func)(void) )
 
 #pragma optimization_level 0
 
+#ifdef TARGET_PC
+/* the end of Ps2SwapDBuff: the frame blend, then the display swap (the frame goes to the screen) */
+static void pc_swap_frame(void)
+{
+    PS2_swap();
+
+    sceGsSwapDBuffDc(&Db, Ps2_dbuff);
+
+    Ps2_dbuff = (Ps2_dbuff + 1) & 0x1;
+}
+#endif
+
 // 100% matching!
-void Ps2SwapDBuff() 
+void Ps2SwapDBuff()
 { 
     SyncPath(); 
     
@@ -76,24 +88,44 @@ void Ps2SwapDBuff()
     
     SyncPath(); 
 
-    EorFunc(); 
-    
-    while (Ps2_vcount < 2) 
-    { 
-#ifndef TARGET_PC
-        asm("nop");
-        asm("nop");
+    EorFunc();
+
+#ifdef TARGET_PC
+    {
+        /* "Smooth menus" (pc_menu_smooth): in a menu the finished frame is handed over at once and
+           the wait for the second VBLANK follows, so it is shown a game frame sooner after the pad
+           read that made it; the game's pace and order of work stay the same */
+        int early = pc_menu_smooth();
+
+        if (early)
+        {
+            pc_swap_frame();
+        }
+
+        while (Ps2_vcount < 2)
+        {
+            ps2_wait_vblank(); /* blocks until the next emulated VBLANK interrupt has been delivered */
+        }
+
+        if (!early)
+        {
+            pc_swap_frame();
+        }
+    }
 #else
-        ps2_wait_vblank(); /* blocks until the next emulated VBLANK interrupt has been delivered */
-#endif
-    } 
-    
-    PS2_swap(); 
-    
+    while (Ps2_vcount < 2)
+    {
+        asm("nop");
+        asm("nop");
+    }
+
+    PS2_swap();
+
     sceGsSwapDBuffDc(&Db, Ps2_dbuff);
-    
+
     Ps2_dbuff = (Ps2_dbuff + 1) & 0x1;
-    
+#endif
+
     Ps2_vcount = 0; 
 
     printf("TICK = %d\n", *(volatile unsigned int*)SR_CU0); 
