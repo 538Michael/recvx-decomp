@@ -1511,6 +1511,9 @@ void bhSysCallMonitor()
             break;
         case 5:
             AllItemInit(0);
+#ifdef TARGET_PC
+            pc_quick_start(); /* co-op rule "Quick start": the host's new game begins with the manual read and the knife (pc/glue/coop_glue.c) */
+#endif
             
             sys->mn_md1 = 6;
             break;
