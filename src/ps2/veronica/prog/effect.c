@@ -437,7 +437,7 @@ int bhSetEffect(int effno, POINT* pnt, unsigned char* lkp, int lkono)
 
 #ifdef TARGET_PC
 /* per effect slot, the enemy type whose code made it (-1: none), for its sounds (a Black Widow's acid
-   splashes request as enemy 127 from the effect's own step): eneset.c pc_enemy_sound_type */
+   splashes request as enemy PC_ENE_SLOTS from the effect's own step): eneset.c pc_enemy_sound_type */
 short pc_eff_owner[512][2];   /* type, effect id + 1 */
 int pc_enemy_sound_type(int slot);
 int pc_fx_tex_missing(int id, int tex_id);   /* spawn_glue.c */

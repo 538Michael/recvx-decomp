@@ -518,7 +518,11 @@ int bhSearchNextEnemy(BH_PWORK* pp, int r, float h)
     int i, j, k;           
     int id, idc;     
     int yr;         
+#ifdef TARGET_PC
+    SC_WORK scw[PC_ENE_SLOTS];   /* one per enemy slot in front (the loop below) */
+#else
     SC_WORK scw[128]; 
+#endif
 
     if (r == 0) 
     {

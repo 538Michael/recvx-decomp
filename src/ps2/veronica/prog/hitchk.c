@@ -5852,7 +5852,11 @@ void bhCheckEnemies(BH_PWORK* pp)
     int r;            
     int i;           
     int hct;            
+#ifdef TARGET_PC
+    NJS_POINT3 ps[PC_ENE_SLOTS];   /* one per enemy slot touching pp */
+#else
     NJS_POINT3 ps[128];
+#endif
     BH_PWORK* enep; // not from DWARF
     float car;      // not from DWARF
 

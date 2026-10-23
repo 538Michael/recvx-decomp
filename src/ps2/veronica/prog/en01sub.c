@@ -158,7 +158,11 @@ void bhEne01Parent_NoKaidanCheck()
 		{ -1, 0, 0, 0 }
 	};
     STG_WORK* stg_p;    
+#ifdef TARGET_PC   /* one per zombie off the floor: more than 10 overran it (rooms of stage 0 or room number 6) */
+    BH_PWORK* ep_p[PC_ENE_SLOTS];
+#else
     BH_PWORK* ep_p[10]; 
+#endif
     BH_PWORK* ep;       
     int i;              
     int n, no;             

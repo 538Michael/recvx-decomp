@@ -845,7 +845,11 @@ void bhEne_CallSE_EX(BH_PWORK* epw, NJS_POINT3* pos, int se, int fade)
 // 100% matching!
 void bhEne_CallEffectSE(NJS_POINT3* pos, int se)
 {
+#ifdef TARGET_PC   /* an effect's request: past the enemy slots (127 was a slot too once there are more) */
+    RequestEnemySe(PC_ENE_SLOTS, pos, se);
+#else
     RequestEnemySe(127, pos, se);
+#endif
 }
 
 // 100% matching!
@@ -857,7 +861,11 @@ void bhEne_SetSEPan(BH_PWORK* epw, NJS_POINT3* pos, int se) // first parameter i
 // 100% matching!
 int bhEne_CheckPlayEffectSE(int se)
 {
+#ifdef TARGET_PC
+    return ChechPlayEnemySe(PC_ENE_SLOTS, se);
+#else
     return ChechPlayEnemySe(127, se);
+#endif
 }
 
 // 100% matching!

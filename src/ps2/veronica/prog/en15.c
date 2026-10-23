@@ -302,7 +302,11 @@ static int GetLocalEneNo(BH_PWORK* epw)
 {
     int i;
 
+#ifdef TARGET_PC
+    for (i = 0; i < PC_ENE_SLOTS; i++) 
+#else
     for (i = 0; i < 128; i++) 
+#endif
     {
         if (&ene[i] == epw) 
         {

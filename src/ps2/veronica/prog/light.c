@@ -729,7 +729,7 @@ void bhControlLight()
                 /* lkno is the enemy's slot (en22.c, pwksub.c: idx_ct), read as a record: slot k
                    is record k for the room's records; beyond them (an enemy the F2 spawner or the
                    enemy options added) the slot itself */
-                pwp = lp->lkno < rom->ene_n ? &ene[rom->enep[lp->lkno].wrk_no] : &ene[lp->lkno & 127];
+                pwp = lp->lkno < rom->ene_n ? &ene[rom->enep[lp->lkno].wrk_no] : &ene[(unsigned)lp->lkno % PC_ENE_SLOTS];
 #else
                 pwp = &ene[rom->enep[lp->lkno].wrk_no];
 #endif

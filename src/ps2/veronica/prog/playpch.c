@@ -379,7 +379,11 @@ static search* bhSearchEnemy(BH_PWORK* pwP, int rng, float hgt)
                 
                 cap.r = 0.1f;
                 
-                if (bhCheckC2WallN(&cap, 0x40000400) == 0)  
+#ifdef TARGET_PC   /* at most 64 entries (PP_WORK.SchLst): more enemies in front overran the player work */
+                if ((lstP < ppP->SchLst + 64) && (bhCheckC2WallN(&cap, 0x40000400) == 0))
+#else
+                if (bhCheckC2WallN(&cap, 0x40000400) == 0)
+#endif
                 {
                     lstP->dir = (int)(10430.381f * atan2f(vct1.x, vct1.z)) + 32768;
                     lstP->dst = dst;                    

@@ -42,7 +42,11 @@ SYS_WORK sysp;
 ROM_WORK romp;
 CAM_WORK cam;
 BH_PWORK ply;
+#ifdef TARGET_PC
+BH_PWORK ene[PC_ENE_SLOTS];   /* 128 on the PS2 (pc_prelude.h) */
+#else
 BH_PWORK ene[128];
+#endif
 O_WRK eff[512];
 unsigned char* freemem;
 unsigned char* keepmem;

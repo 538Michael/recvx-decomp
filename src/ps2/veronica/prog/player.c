@@ -1028,7 +1028,11 @@ void bhResetPlayer()
     
     epp = ene;
     
+#ifdef TARGET_PC
+    for (i = 0; i < PC_ENE_SLOTS; i++, epp++)
+#else
     for (i = 0; i < 128; i++, epp++)
+#endif
     {
         if (((epp->flg & 0x1)) && (epp->id == 27)) 
         {

@@ -165,8 +165,8 @@ JumpEnemy_proc bhJumpEnemy[100] =
    code with a moth child's state (crash). */
 int pc_enemy_added;
 static JumpEnemy_proc pc_helper[100][8];   /* [creator type][id - 31] */
-static unsigned char pc_owner[128];        /* slot -> creator type + 1; 0: made outside an enemy's code (room load, spawner) */
-static unsigned char pc_retail[128];       /* slot made while the room had no added enemies (children only: o != 0) */
+static unsigned char pc_owner[PC_ENE_SLOTS];        /* slot -> creator type + 1; 0: made outside an enemy's code (room load, spawner) */
+static unsigned char pc_retail[PC_ENE_SLOTS];       /* slot made while the room had no added enemies (children only: o != 0) */
 static JumpEnemy_proc pc_snap[8];          /* bhJumpEnemy[31..38] when the room got added enemies */
 static BH_PWORK* pc_running;               /* the enemy whose code runs (bhControlEnemy) */
 
@@ -179,14 +179,14 @@ static BH_PWORK* pc_running;               /* the enemy whose code runs (bhContr
    an enemy against the partner's work (coop_glue.c swaps plp). */
 static struct { BH_PWORK* pl; BH_PWORK* by; } pc_held[2];
 
-static BH_PWORK* pc_root(BH_PWORK* ep) { return pc_root_in(ep, ene, 128); }   /* a part's or child's parent enemy (pc_rules.h) */
+static BH_PWORK* pc_root(BH_PWORK* ep) { return pc_root_in(ep, ene, PC_ENE_SLOTS); }   /* a part's or child's parent enemy (pc_rules.h) */
 
 /* ep counts as the holder `by`'s family: its part or child, or the leader of by's type. A moth's
    and a Black Widow's grab is started by the body (player busy flag) and played by the type's
    leader, an unlinked enemy of the same id the first body's Init made (en06.c bhEne06_PlayerControl,
    en03.c bhEne03_PlayerControl), shared by all bodies of the type. Without it the leader's
    control was undone and the player stayed grabbed for good. */
-static int pc_family(BH_PWORK* ep, BH_PWORK* by) { return pc_family_in(ep, by, ene, 128, pc_owner); }
+static int pc_family(BH_PWORK* ep, BH_PWORK* by) { return pc_family_in(ep, by, ene, PC_ENE_SLOTS, pc_owner); }
 
 /* the room gets enemies its file does not have (spawn_glue.c): the shared functions its children
    made so far run are the ones in place now (pc_snap). Taken at the next enemy step instead, a room
@@ -215,15 +215,15 @@ void pc_enemy_holds(BH_PWORK* pl, BH_PWORK* by)
 }
 
 /* the enemy type whose sounds a request of enemy `slot` plays (sdfunc.c via spawn_glue.c): the enemy
-   whose code runs, else `slot`; 127 outside enemy code is an effect's request (zonzon1.c
+   whose code runs, else `slot`; PC_ENE_SLOTS (127 on the PS2) outside enemy code is an effect's request (zonzon1.c
    bhEne_CallEffectSE from the effect's step): the type that made the effect (effect.c). A part or
    child counts as its creator's type. -1: none */
 int pc_enemy_sound_type(int slot)
 {
     extern short pc_eff_owner[512][2];
-    BH_PWORK* ep = pc_running ? pc_running : slot >= 0 && slot < 127 ? &ene[slot] : NULL;
+    BH_PWORK* ep = pc_running ? pc_running : slot >= 0 && slot < PC_ENE_SLOTS ? &ene[slot] : NULL;
     int o;
-    if (!pc_running && slot == 127)
+    if (!pc_running && slot == PC_ENE_SLOTS)
         return sys->efnow < 512 && pc_eff_owner[sys->efnow][1] == eff[sys->efnow].id + 1 ? pc_eff_owner[sys->efnow][0] : -1;
     if (!ep || !(ep->flg & 0x1)) return -1;
     ep = pc_root(ep);
@@ -234,9 +234,9 @@ int pc_enemy_sound_type(int slot)
 static void pc_call_enemy(BH_PWORK* ep, int slot)
 {
     JumpEnemy_proc f = bhJumpEnemy[ep->id];
-    int o = slot < 128 ? pc_owner[slot] : 0, h, busy;
+    int o = slot < PC_ENE_SLOTS ? pc_owner[slot] : 0, h, busy;
     BH_PWORK* pl = plp;
-    if (pc_enemy_added) f = pc_enemy_proc(f, ep->id, o, slot < 128 && pc_retail[slot], pc_snap, o ? pc_helper[o - 1] : NULL);
+    if (pc_enemy_added) f = pc_enemy_proc(f, ep->id, o, slot < PC_ENE_SLOTS && pc_retail[slot], pc_snap, o ? pc_helper[o - 1] : NULL);
     pc_running = ep;
     if (!pc_enemy_added || !pl) {
         f(ep);
@@ -282,7 +282,11 @@ CPCL En00CapColTab[5] =
 // 100% matching! 
 void bhInitEnemy()
 {
+#ifdef TARGET_PC
+    npSetMemory((unsigned char*)ene, sizeof(ene), 0);
+#else
     npSetMemory((unsigned char*)ene, 180224, 0);
+#endif
 }
 
 // 100% matching!
@@ -386,8 +390,8 @@ BH_PWORK* bhSetEnemy(EGG_WORK* etp, int unused) // second parameter is not prese
             
             epp->idx_ct = i;
 #ifdef TARGET_PC
-            if (i < 128) pc_owner[i] = pc_running && pc_running->id < 100 ? pc_running->id + 1 : 0;
-            if (i < 128) pc_retail[i] = !pc_enemy_added;
+            pc_owner[i] = pc_running && pc_running->id < 100 ? pc_running->id + 1 : 0;
+            pc_retail[i] = !pc_enemy_added;
 #endif
             
             epp->sxb = 1.0f;
@@ -435,7 +439,11 @@ BH_PWORK* bhSetEnemy(EGG_WORK* etp, int unused) // second parameter is not prese
         i++;
         epp++;
         
+#ifdef TARGET_PC
+        if (i >= PC_ENE_SLOTS) 
+#else
         if (i >= 128) 
+#endif
         {
             bhCheckEneWorkNum();
             
@@ -454,7 +462,11 @@ void bhCheckEneWorkNum()
     
     epp = ene;
 
+#ifdef TARGET_PC
+    for (i = 0; i < PC_ENE_SLOTS; i++, epp++)
+#else
     for (i = 0; i < 128; i++, epp++)
+#endif
     {
         if ((epp->flg & 0x1))
         {

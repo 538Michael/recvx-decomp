@@ -50,10 +50,18 @@ int ReqFadeBgmNo;
 int ReqFadeBgSe[2];
 NO_NAME_30 BgSePrmBuf[2];
 EnemySlot EnemySlotInfo[6];
+#ifdef TARGET_PC   /* per enemy slot, and the effects' requests (zonzon1.c bhEne_CallEffectSE) */
+Enemy EnemyInfo[PC_ENE_SLOTS + 1];
+#else
 Enemy EnemyInfo[128];
+#endif
 ObjectSlot ObjectSlotInfo[3];
 Object ObjectInfo[16];
+#ifdef TARGET_PC
+unsigned char RequestList[PC_ENE_SLOTS + 1];
+#else
 unsigned char RequestList[128];
+#endif
 unsigned char ObjectReqList[16];
 int MaxRequestList;
 int MaxObjectReqList;
@@ -1800,7 +1808,7 @@ void CallDoorSe(unsigned int No)
    spawner loaded for the requesting enemy's type (spawn_glue.c; 0: the room's, -1: none, silence),
    used when the sound manager plays it (CallEnemySeMain); [1]: its voice channel's (SeNoV: an enemy variant's
    voice comes from a bank of its own, pc/glue/variant_glue.c) */
-static signed char pc_enemy_se_bank[2][128];
+static signed char pc_enemy_se_bank[2][PC_ENE_SLOTS + 1];
 int spawn_sound_bank(int enemy_no);
 extern int pc_se_xbank;
 #endif
@@ -1814,11 +1822,11 @@ void RequestEnemySeBasic(int EnemyNo, NJS_POINT3* pPos, int SeNo, int Flag, int 
     eip = EnemyInfo; 
     eip = &eip[EnemyNo];
 #ifdef TARGET_PC
-    pc_enemy_se_bank[(SeNo & 0xF000000) != 0][EnemyNo & 127] = (signed char)spawn_sound_bank(EnemyNo);
+    pc_enemy_se_bank[(SeNo & 0xF000000) != 0][EnemyNo & 255] = (signed char)spawn_sound_bank(EnemyNo);
 
     if (pc_variant_n)   /* an enemy variant's own sounds for some of its base's (pc/glue/variant_glue.c) */
     {
-        SeNo = pc_variant_sound(EnemyNo, SeNo, &pc_enemy_se_bank[(SeNo & 0xF000000) != 0][EnemyNo & 127]);
+        SeNo = pc_variant_sound(EnemyNo, SeNo, &pc_enemy_se_bank[(SeNo & 0xF000000) != 0][EnemyNo & 255]);
     }
 #endif
     
@@ -2435,7 +2443,7 @@ void CallEnemySeMain(unsigned int SlotNo, int SeNo, char Pan, char Vol, int Flag
 #ifdef TARGET_PC
         if (RequestInfo.BankNo == 3)
         {
-            pc_se_xbank = pc_enemy_se_bank[(SeNo & 0xF000000) != 0][EnemySlotInfo[SlotNo].EnemyNo & 127];
+            pc_se_xbank = pc_enemy_se_bank[(SeNo & 0xF000000) != 0][EnemySlotInfo[SlotNo].EnemyNo & 255];
             
             if (pc_se_xbank < 0)
             {
@@ -2532,7 +2540,11 @@ void ExecEnemySeManager()
     
     MaxRequestList = 0;
     
+#ifdef TARGET_PC
+    for (i = 0, eip = EnemyInfo; i < PC_ENE_SLOTS + 1; i++, eip++) 
+#else
     for (i = 0, eip = EnemyInfo; i < 128; i++, eip++) 
+#endif
     {
         if ((eip->ReqFlag != 0) || (eip->ReqFlagV != 0)) 
         {

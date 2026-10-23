@@ -22,7 +22,11 @@ extern unsigned char* keepmem;
 extern BH_PWORK ply;
 extern float BHD_ASPECT_X;
 extern float BHD_ASPECT_Y;
+#ifdef TARGET_PC
+extern BH_PWORK ene[PC_ENE_SLOTS];   /* pc_prelude.h */
+#else
 extern BH_PWORK ene[128];
+#endif
 
 void njUserInit(void);
 Sint32 njUserMain(void);
