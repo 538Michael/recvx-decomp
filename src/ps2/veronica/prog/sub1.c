@@ -8929,9 +8929,14 @@ int bhSearchBullet()
     unsigned int z;  
     unsigned short bullettype; 
 
-    st = &swork; 
+    st = &swork;
 
-    if (!(sys->st_flg & 0x8000000)) 
+#ifdef TARGET_PC   /* the retail ELF tests gm_flg (sys+0x5C: the side pack, 10 slots, as ItemBox and the bag); st_flg's bit
+                      is the typewriter's, so the last two slots were never searched and ammo there did not reload */
+    if (!(sys->gm_flg & 0x8000000))
+#else
+    if (!(sys->st_flg & 0x8000000))
+#endif
     {
         max = 8;
     }
