@@ -90,6 +90,12 @@ void DispLoadMessageSelect(char cSelectMes)
     case 11:
         bhDispMessage(90.0f, 194.0f, -1.0f, 1, 451, 0, 0);
         break;
+#ifdef TARGET_PC
+    case 12:   /* BioRand: the save's state differs (pc/glue/biorand_glue.c), YES / NO */
+        pc_biorand_load_text();
+        bhDispMessage(290.0f, 360.0f, -1.0f, 1, 466, 0, 0);
+        break;
+#endif
     }
     
     bhFontScaleSet(1.0f, 1.0f, 1.0f);
@@ -117,6 +123,11 @@ void DispLoadTexture(LOAD_SCREEN* pLoad)
         
         DispUpDownCursol(256.0f, 358.0f, pLoad->sSelectCur + 2);
         break;
+#ifdef TARGET_PC
+    case 3:   /* the YES / NO arrow alone (the BioRand question) */
+        DispUpDownCursol(256.0f, 358.0f, pLoad->sSelectCur + 2);
+        break;
+#endif
     }
 }
 
@@ -184,6 +195,11 @@ int ExecuteLoadScreen(LOAD_SCREEN* pLoad)
     case 34:
         ExecuteStateLoadScreenLoadExit(pLoad);
         break;
+#ifdef TARGET_PC
+    case 35:
+        ExecuteStateLoadScreenBioRand(pLoad);
+        break;
+#endif
     }
     
     DispLoadTexture(pLoad);
@@ -931,6 +947,17 @@ void ExecuteStateLoadScreenLoad(LOAD_SCREEN* pLoad)
         
         if (lResult == 1) 
         {
+#ifdef TARGET_PC   /* BioRand: a save made with another pack, or without one while it is on, asks first */
+            if (pc_biorand_save_differs(pLoad->pSaveFile))
+            {
+                pLoad->ulState = 35;
+                pLoad->cMesFlag = 12;
+                pLoad->cCgFlag = 3;
+                pLoad->sSelectCur = 1;   /* NO */
+                SetCheckMcFlag(pLoad->pMcState, 0);
+                break;
+            }
+#endif
             SetStateLoadScreenLoadExit(pLoad);
         } 
         else if (lResult == -1)
@@ -968,6 +995,41 @@ void ExecuteStateLoadScreenLoad(LOAD_SCREEN* pLoad)
         break;
     }
 }
+
+#ifdef TARGET_PC
+/* "This save was made with BioRand seed ...": YES loads it (its BioRand words become the current state), NO or
+   cancel goes back to the list (pc/glue/biorand_glue.c) */
+void ExecuteStateLoadScreenBioRand(LOAD_SCREEN* pLoad)
+{
+    if ((sys->pad_ps & 0x3))
+    {
+        pLoad->sSelectCur ^= 1;
+        
+        CallSystemSe(0, 2);
+    }
+    else if ((sys->pad_ps & 0x800))
+    {
+        if (pLoad->sSelectCur == 0)
+        {
+            pc_biorand_save_accept(pLoad->pSaveFile);
+            
+            SetStateLoadScreenLoadExit(pLoad);
+        }
+        else
+        {
+            SetStateLoadScreenSelectFile(pLoad);
+        }
+        
+        CallSystemSe(0, 3);
+    }
+    else if ((sys->pad_ps & 0x1000))
+    {
+        SetStateLoadScreenSelectFile(pLoad);
+        
+        CallSystemSe(0, 0);
+    }
+}
+#endif
 
 // 100% matching!
 void SetStateLoadScreenFileBroken(LOAD_SCREEN* pLoad)

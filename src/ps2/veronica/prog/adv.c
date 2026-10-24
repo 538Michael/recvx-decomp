@@ -1765,6 +1765,9 @@ void DisplayNewGamePlate(int Cursor, float FadeRate, int Flag)
     unsigned int Alpha; 
     int DivTbl[3] = { 2, 2, 2 }; 
 
+#ifdef TARGET_PC
+    if (pc_newgame_plates(Cursor, FadeRate, Flag)) return;   /* with the BIORAND row when a pack is there (pc/glue/lobby_glue.c) */
+#endif
     DivTbl[Cursor] = 1;
     
     qp = &Qtex[1];

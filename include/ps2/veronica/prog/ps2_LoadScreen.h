@@ -64,6 +64,9 @@ void SetStateLoadScreenErrCardRead(LOAD_SCREEN* pLoad);
 void ExecuteStateLoadScreenErrCardRead(LOAD_SCREEN* pLoad);
 void SetStateLoadScreenLoadExit(LOAD_SCREEN* pLoad);
 void ExecuteStateLoadScreenLoadExit(LOAD_SCREEN* pLoad);
+#ifdef TARGET_PC
+void ExecuteStateLoadScreenBioRand(LOAD_SCREEN* pLoad);
+#endif
 void SetDispLoadSelectMessage();
 void CheckDispLoadMemoryCard(LOAD_SCREEN* pLoad);
 
