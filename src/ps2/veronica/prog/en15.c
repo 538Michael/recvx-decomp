@@ -421,7 +421,25 @@ void bhEne15(BH_PWORK* epw)
         epw->watr.c2.z /= 2.0f;
         epw->watr.r = 2.5f;
     }
-    
+
+#ifdef TARGET_PC
+    /* co-op: his drive of a player he struck or seized (flung, landing, standing up: Ply_func) moves the victim's body,
+       which the partner's own game has: on the partner's stand-in (coop_glue.c) it never ended, and he held the
+       partner for good and harmed nobody again. There the partner's game plays the blow; a seized partner takes the
+       throw's landing (DrivePlayer: 80) as a hit, and he lets go once the partner is up again (StandupPlayer) */
+    if ((EXP0_S(0x5A) & 1) && coop_on && coop_partner_step())
+    {
+        if ((plp->mnwP == epw->mnwP) && ((plp->mtn_no == 19) || (plp->mtn_no == 21)))
+        {
+            plp->hp -= 80;
+        }
+        else if (!(plp->flg & 0x4) && (plp->mode0 == 1))
+        {
+            EXP0_S(0x5A) &= ~1;
+        }
+    }
+    else
+#endif
     if (EXP0_S(0x5A) & 1)
     {
         plp->flg |= 0x200000;
