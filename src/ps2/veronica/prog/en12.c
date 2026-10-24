@@ -1193,7 +1193,12 @@ void bhEne12_NG00(BH_PWORK* epw)
             plp->flg |= 2;
         }
         
-        if (epw->frm_no == 4259840) {
+        if (epw->frm_no == 4259840
+#ifdef TARGET_PC   /* co-op: not on the partner's stand-in (coop_glue.c): sys->obwp are our own weapons, and the partner's
+                      model would stay burnt when it plays on - its own game shows its death */
+            && !(coop_on && coop_partner_step())
+#endif
+            ) {
             npSetAllMatColor(plp->mlwP->objP, plp->mlwP->obj_num, 0xFF402020);
             npSetAllMatColor(sys->obwp->mlwP->objP, 1U, 0xFF402020);
             npSetAllMatColor(sys->obwp[1].mlwP->objP, 1U, 0xFF402020);
