@@ -974,6 +974,13 @@ void bhDrawEnemy()
     
     for (i = 0; i < sys->ewk_n; i++, ep++)
     {
+#ifdef TARGET_PC   /* a work without a model (an enemy's helper, e.g. the moths' leader) is never drawn: flags made it
+                      drawable (a co-op snapshot of another enemy type) and bhCalcModel crashed on its NULL mlwP */
+        if (ep->mlwP == NULL)
+        {
+            continue;
+        }
+#endif
         if ((((ep->flg & 0x1)) && (!(ep->flg & 0x80000000))) && (!(ep->stflg & 0x41000000)) && (((sys->st_flg & 0x20)) || (!(ep->mdflg & 0x200))) && ((!(ep->flg & 0x80)) || (!(((BH_PWORK*)ep->lkwkp)->stflg & 0x1000000))))
         {
             if ((ep->mdflg & 0x4)) 
