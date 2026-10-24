@@ -373,7 +373,19 @@ void bhInitEvent()
 
     swork.pip = &sys->itm[sys->ply_id * 16];
 
+#ifdef TARGET_PC
+    if (coop_on)
+    {
+        coop_scd0(0); /* co-op: the world flags before the entry script, so a solution it would clear stays (pc/glue/coop_glue.c) */
+    }
+#endif
     bhScenarioCheck((unsigned char*)bhScdPtr);
+#ifdef TARGET_PC
+    if (coop_on)
+    {
+        coop_scd0(1);
+    }
+#endif
     
     sys->sp_flg |= 0x10;
     
