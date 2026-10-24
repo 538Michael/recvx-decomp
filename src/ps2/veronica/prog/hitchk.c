@@ -4837,6 +4837,13 @@ void bhCheckExmAtari(BH_PWORK* pp)
                         break;
                     }
                     
+#ifdef TARGET_PC   /* co-op: the partner is using this trigger (a puzzle, a terminal): not twice at once (pc/glue/coop_glue.c) */
+                    if ((coop_on != 0) && (coop_examine(i) != 0))
+                    {
+                        sys->cb_flg &= ~0x100;
+                        return;
+                    }
+#endif
                     if (!(sys->st_flg & 0x80))
                     {
                         if ((exp->attr & 0x9))

@@ -6506,6 +6506,12 @@ unsigned int bhEvtComSet()
 
     bhScePtr++;
     
+#ifdef TARGET_PC   /* co-op: an event replayed from the partner's world event opens no terminal here (pc/glue/coop_glue.c) */
+    if ((coop_on != 0) && (coop_replayed_event() != 0))
+    {
+        return 1;
+    }
+#endif
     sys->cb_flg |= 0x400000;
 
     sys->com_num = v0;
