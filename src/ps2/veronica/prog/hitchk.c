@@ -4637,12 +4637,13 @@ int bhCheckInnerP4(NJS_POINT2* pos, NJS_POINT2* p0, NJS_POINT2* p1, NJS_POINT2* 
     return 1;
 }
 
-// 100% matching!
 #ifdef TARGET_PC
-/* Pickup count for the floor pickup being handled. 0 = retail. */
+/* The count of the floor pickup being taken (a generated room's item record: wrk_no), 0 the retail amount.
+   Set here, read by GetItem (sub1.c), which clears it once the pickup is over. */
 unsigned char override_pickup_quantity;
 #endif
 
+// 100% matching!
 void bhCheckExmAtari(BH_PWORK* pp)
 {
     NJS_POINT3 ps; 
@@ -4936,6 +4937,10 @@ void bhCheckExmAtari(BH_PWORK* pp)
                                below the item table size is the pickup id. */
                             unsigned short pickup_type = op->type;
                             sys->sb_id = (pickup_type && pickup_type < 156) ? pickup_type : op->id;
+                            /* for the standing pickup (the status screen opens now) and the crouching one (it
+                               opens after the motion, player.c bhCPM2_act_cro) alike */
+                            override_pickup_quantity = (pickup_type && pickup_type < 156 && exp->prm0 < rom->itm_n)
+                                                           ? rom->itmp[exp->prm0].wrk_no : 0;
 #else
                             sys->sb_id = op->id;
 #endif
@@ -4954,15 +4959,6 @@ void bhCheckExmAtari(BH_PWORK* pp)
                             } 
                             else
                             {
-#ifdef TARGET_PC
-                                /* wrk_no is the optional count for this floor
-                                   pickup; 0 keeps the retail behaviour. It is
-                                   only set here, not for directly used AOTs. */
-                                override_pickup_quantity =
-                                    (pickup_type && pickup_type < 156)
-                                        ? (exp->prm0 < rom->itm_n ? rom->itmp[exp->prm0].wrk_no : 0)
-                                        : 0;
-#endif
                                 sys->st_flg &= ~0x4;
                                 
                                 sys->cb_flg |= 0x10;

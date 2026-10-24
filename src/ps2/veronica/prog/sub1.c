@@ -3734,19 +3734,20 @@ void StatusMain()
     }
 }
 
-// 100% matching!
 #ifdef TARGET_PC
-/* Set by bhCheckExmAtari just before a floor pickup; GetItem consumes it. */
+/* Set by bhCheckExmAtari for a floor pickup (hitchk.c). GetItem runs every frame of the status screen
+   ("Will you take it?" answered frames later): it is cleared once the item is added, on No, when the
+   screen ends (full inventory too) and for an event's item. */
 extern unsigned char override_pickup_quantity;
 #endif
 
+// 100% matching!
 void GetItem(S_WORK* st)
 {
 #ifdef TARGET_PC
-    /* Consume the quantity at entry: it belongs to this call only, and a
-       cancelled or full-inventory pickup must not leak it into a later grant. */
+    if (st->testmode == 0 && (sys->cb_flg & (0x4000 | 0x1000000)))
+        override_pickup_quantity = 0;   /* an event's item: the retail amount */
     unsigned char override_quantity = override_pickup_quantity;
-    override_pickup_quantity = 0;
 #endif
     unsigned short num1, num2;     
     unsigned short bullet1; 
@@ -3923,6 +3924,9 @@ void GetItem(S_WORK* st)
                 break; 
             case 101:                              
                 st->testmode = 3;
+#ifdef TARGET_PC
+                override_pickup_quantity = 0;
+#endif
                 break;
             }
         }
@@ -3940,6 +3944,9 @@ void GetItem(S_WORK* st)
     case 3:                                         
         if ((!(swork.statusflg & 0x40)) && (!(sys->st_flg & 0x200)))
         {
+#ifdef TARGET_PC
+            override_pickup_quantity = 0;   /* the screen ends: taken, declined or no room */
+#endif
             if ((swork.statusflg & 0x100))
             {
                 StatusCancel(st);
@@ -4217,6 +4224,8 @@ void GetItem(S_WORK* st)
         sys->cb_flg &= ~0x1000000;
     }
 #ifdef TARGET_PC
+    if (swork.statusflg & 0x100)
+        override_pickup_quantity = 0;   /* added */
     if (pc_given && (swork.statusflg & 0x100))
     {
         coop_item_granted(sys->sb_id);

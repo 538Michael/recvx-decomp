@@ -108,9 +108,15 @@ const short combidata[410] =
 };
 /* 0x200 is the standard stackable item-type flag (handgun bullets, ink
    ribbons and the other ammo already use it). Retail leaves it off the rifle
-   and assault-rifle bullet entries, which makes every pickup take a slot; the
-   PC port sets it so those pickups merge into one stack. */
+   and assault-rifle bullet entries (40, 42), which makes every pickup take a
+   slot. On the PC the table is writable: the port sets the flag on those two
+   while its "Rifle ammo stacks" setting is on (or BioRand is), so those pickups
+   merge into one stack. */
+#ifdef TARGET_PC
+ITEM_WORK itemdata[156] =
+#else
 const ITEM_WORK itemdata[156] = 
+#endif
 {
     {   0,   -1,     0 },
     {   1,   -1,  3329 },
@@ -152,17 +158,9 @@ const ITEM_WORK itemdata[156] =
     {   6,  136,  3586 },
     { 400,  278,  5122 },
     {   1,   -1,     4 },
-#ifdef TARGET_PC
-    {   7,  282,  3074 | 0x200 },
-#else
     {   7,  282,  3074 },
-#endif
     {   1,   -1,  1028 },
-#ifdef TARGET_PC
-    { 300,  289,  5122 | 0x200 },
-#else
     { 300,  289,  5122 },
-#endif
     {   1,   -1,    64 },
     {   1,   -1,    64 },
     {   1,   -1,    64 },
