@@ -2886,7 +2886,11 @@ static void bhEne19_TargetAnalyze(BH_PWORK* ewP, FW_WORK* fwP)
 
     stsP = &fwP->status;
 
+#ifdef TARGET_PC   /* co-op: the partner dying (its stand-in, coop_glue.c) ends nothing here - the flag (no more blows) stays for good */
+    if (((*stsP & 0x1)) && ((plp->hp < 0) || ((plp->flg & 0x2))) && !(coop_on && coop_partner_step())) 
+#else
     if (((*stsP & 0x1)) && ((plp->hp < 0) || ((plp->flg & 0x2)))) 
+#endif
     {
         *stsP |= 0x800;
     }
