@@ -1794,12 +1794,25 @@ void bhSysCallMonitor()
                 {
                     FlushCache(0);
                     
-                    sys->rdtsz = Expand((char*)sys->rdtp, sys->memp);
 #ifdef TARGET_PC
-                    /* the expansion grows towards the packed copy at the top (the PS2's RM_9350 overlaps
-                       it harmlessly); past endp it has overwritten the vertex buffers */
-                    if ((int)sys->rdtsz > sys->endp - sys->memp)
-                        host_fatal("RM_%d%02d%d: expanded room file (%d KB) exceeds the room arena (%d KB free)", sys->stg_no, sys->rom_no, sys->rcase, (int)sys->rdtsz >> 10, (int)(sys->endp - sys->memp) >> 10);
+                    /* bounded (pc/include/pc_parse.h): the packed copy is read up to endp, the expansion
+                       written up to it (it grows towards the packed copy at the top; the PS2's RM_9350
+                       overlaps it harmlessly); a file that does not fit or is broken stops the game */
+                    {
+                        int r = pc_prs_decode(sys->rdtp, (unsigned int)(sys->endp - sys->rdtp), sys->memp, (unsigned int)(sys->endp - sys->memp));
+
+                        if (r < 0)   /* the mods folder's: the disc's room file instead (actor_glue.c) */
+                            r = pc_room_from_disc(sys->mes, sys->memp, sys->endp, r);
+
+                        if (r < 0)
+                            host_fatal("RM_%d%02d%d: the room file %s (%d KB free in the room arena)", sys->stg_no, sys->rom_no, sys->rcase,
+                                       r == -2 ? "does not fit when expanded" : "is damaged", (int)(sys->endp - sys->memp) >> 10);
+                        sys->rdtsz = r;
+                    }
+#else
+                    sys->rdtsz = Expand((char*)sys->rdtp, sys->memp);
+#endif
+#ifdef TARGET_PC
                     host_log("room: RM_%d%02d%d %d KB expanded, %d KB of the room arena left\n", sys->stg_no, sys->rom_no, sys->rcase, (int)sys->rdtsz >> 10, (int)(sys->endp - sys->memp - (int)sys->rdtsz) >> 10);
 #endif
                     
