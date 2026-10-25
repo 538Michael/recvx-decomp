@@ -1022,7 +1022,7 @@ void bhDrawEnemy()
                     }
                     
 #ifdef TARGET_PC
-                    if ((ep->mdflg & 0x2) && pc_variant_n && pc_variant_draw(ep))   /* an enemy variant's model (a zombie chewing: no morph) */
+                    if ((ep->mdflg & 0x2) && ((pc_variant_n && pc_variant_draw(ep)) || (actor_on && actor_put_enemy(ep))))   /* an enemy variant's or the cutscene cast's model (a zombie chewing: no morph) */
                     {
                     }
                     else
