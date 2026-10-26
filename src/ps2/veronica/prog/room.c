@@ -82,6 +82,13 @@ void bhSetRoom()
     {
         *romp = (unsigned int)sys->rdtp + *romp;
     }
+#ifdef TARGET_PC
+    {   /* the game language (pc/src/host/lang.c): the room's messages */
+        char where[24];
+        sprintf(where, "room/RM_%d%02d%d", sys->stg_no, sys->rom_no, sys->rcase);
+        rom->mesp = (unsigned int*)pc_lang_table(rom->mesp, where);
+    }
+#endif
     
     cp = rom->cutp;
     

@@ -592,6 +592,10 @@ void RankingTextureInit()
             datp += dt; 
             
             sys->mes_sp = (unsigned int*)(datp + 4);
+#ifdef TARGET_PC
+            sys->mes_ip = (unsigned int*)pc_lang_table(sys->mes_ip, "item");   /* the game language (pc/src/host/lang.c) */
+            sys->mes_sp = (unsigned int*)pc_lang_table(sys->mes_sp, "sys");
+#endif
             
             rk->mode_00 = 2;
         }

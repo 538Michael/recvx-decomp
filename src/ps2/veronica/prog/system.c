@@ -1471,6 +1471,10 @@ void bhSysCallMonitor()
                 datp += dt; 
                 
                 sys->mes_sp = (unsigned int*)(datp + 4);
+#ifdef TARGET_PC
+                sys->mes_ip = (unsigned int*)pc_lang_table(sys->mes_ip, "item");   /* the game language (pc/src/host/lang.c) */
+                sys->mes_sp = (unsigned int*)pc_lang_table(sys->mes_sp, "sys");
+#endif
                 
                 sys->mn_md1 = 3; 
             }
@@ -2524,7 +2528,11 @@ void bhSysCallScreenSaver()
     case 10:
         sys->ssv_an = 64.0f;
         
+#ifdef TARGET_PC
+        sys->mes_tp = (unsigned short*)pc_lang_str(pause_mes, "exe/pause");   /* the game language (pc/src/host/lang.c) */
+#else
         sys->mes_tp = pause_mes;
+#endif
         
         bhDispMessage(280.0f, 188.0f, -0.9f, 2, 0, 0, 0);
         
@@ -2728,7 +2736,11 @@ void EasyDispMessage(float PosY, unsigned int MessageNo)
                 SizeX += 14.0f * FontScaleX; 
                 break; 
             default: 
+#ifdef TARGET_PC
+                SizeX += FontScaleX * bhGetFontSize(nmp[x]);   /* (the game language's letters past FontSz) */
+#else
                 SizeX += FontScaleX * FontSz[nmp[x]]; 
+#endif
                 break; 
             } 
         } 

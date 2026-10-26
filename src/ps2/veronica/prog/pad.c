@@ -103,6 +103,21 @@ void bhSetPad()
         
         if (!(sys->cb_flg & 0x2)) 
         { 
+#ifdef TARGET_PC
+            unsigned short* demo = (unsigned short*)pc_lang_str(pdm_mes, "exe/demo");   /* the game language (pc/src/host/lang.c) */
+            unsigned short* press = (unsigned short*)pc_lang_str(pdm_palmes, "exe/press_start");
+
+            sys->mes_tp = demo;
+            
+            argb = ((int)(128.0f + (127.0f * njSin((sys->eor_ct & 0xF) * 2048))) << 24) | 0xE0E000; 
+            
+            bhDispMessageEx(320.0f - (bhMesLen(demo) / 2.0f), 88.0f, -0.9f, 2, 0, argb, 0);    
+            bhDispMessageEx(320.0f - (bhMesLen(demo) / 2.0f), 88.0f, -0.9f, 2, 0, -2039808, 0); 
+            
+            sys->mes_tp = press; 
+            
+            bhDispMessageEx(320.0f - (bhMesLen(press) / 2.0f), 392.0f, -0.9f, 2, 0, argb, 0); 
+#else
             sys->mes_tp = pdm_mes;
             
             argb = ((int)(128.0f + (127.0f * njSin((sys->eor_ct & 0xF) * 2048))) << 24) | 0xE0E000; 
@@ -113,6 +128,7 @@ void bhSetPad()
             sys->mes_tp = pdm_palmes; 
             
             bhDispMessageEx(320.0f - (bhMesLen(pdm_palmes) / 2.0f), 392.0f, -0.9f, 2, 0, argb, 0); 
+#endif
         }
     }
     else

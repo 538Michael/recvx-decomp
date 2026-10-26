@@ -1009,6 +1009,12 @@ void bhDispTimeEx(NJS_POINT2* pos, unsigned int flg, int time, unsigned int argb
 // this function is not present on the Japanese version
 float bhGetFontSize(unsigned short code)
 {
+#ifdef TARGET_PC
+    if (code >= 96)   /* the game language's drawn letters (pc/src/host/lang.c); none in English */
+    {
+        return pc_lang_font_width(code);
+    }
+#endif
     if (code >= 108) 
     {
         return 0;

@@ -1039,7 +1039,11 @@ float AdvEasyDispMessage(float PosX, float PosY, unsigned int MessageNo)
                 SizeX += 14.0f; 
                 break; 
             default: 
+#ifdef TARGET_PC
+                SizeX += bhGetFontSize(nmp[x]);   /* (the game language's letters past FontSz) */
+#else
                 SizeX += FontSz[nmp[x]]; 
+#endif
                 break; 
             } 
         } 
@@ -1086,6 +1090,19 @@ float AutoSaveLoadEasyDispMessage(float PosX, float PosY, unsigned char* ucpMsbT
     float SizeX;
     float sy;
 
+#ifdef TARGET_PC
+    if (ucpMsbTop == SaveLoadMessage)   /* the game language (pc/src/host/lang.c), once */
+    {
+        static const void* tr;
+
+        if (!tr)
+        {
+            tr = pc_lang_table(SaveLoadMessage, "save");
+        }
+
+        ucpMsbTop = (unsigned char*)tr;
+    }
+#endif
     sy = PosY;
     
     smp = (unsigned char*)((int)ucpMsbTop + ((int*)ucpMsbTop)[MessageNo + 1]); 
@@ -1125,7 +1142,11 @@ float AutoSaveLoadEasyDispMessage(float PosX, float PosY, unsigned char* ucpMsbT
                 SizeX += 14.0f * FontScaleX; 
                 break; 
             default: 
+#ifdef TARGET_PC
+                SizeX += FontScaleX * bhGetFontSize(nmp[x]);
+#else
                 SizeX += FontScaleX * FontSz[nmp[x]]; 
+#endif
                 break; 
             } 
         } 
@@ -1281,6 +1302,9 @@ int Adv_FirstWarningMessage()
         break; 
     case 6:
         ap->MsgPtr = AdvGetResourcePtr(ap->ptr[0], 0); 
+#ifdef TARGET_PC
+        ap->MsgPtr = (unsigned char*)pc_lang_table(ap->MsgPtr, "adv");   /* the game language (pc/src/host/lang.c) */
+#endif
         
         AdvEasySetupTextureBasic(AdvGetResourcePtr(ap->ptr[0], 2), 0, 0); 
         AdvEasySetupTextureBasic(AdvGetResourcePtr(ap->ptr[0], 3), 0, 1); 
@@ -3756,6 +3780,9 @@ int Adv_GameOptionScreen()
         ap->PalNo = TransPvpData(AdvGetResourcePtr(ap->ptr[0], 1), ap->PalFlag);
         
         ap->MsgPtr = (unsigned char*)AdvGetResourcePtr(ap->ptr[0], 0);
+#ifdef TARGET_PC
+        ap->MsgPtr = (unsigned char*)pc_lang_table(ap->MsgPtr, "adv");
+#endif
         
         AdvEasyTransTextureBasic(0, 3, 1);
         

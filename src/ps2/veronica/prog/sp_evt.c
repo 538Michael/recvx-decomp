@@ -1840,6 +1840,18 @@ void bhControlComEvtScript()
             ce->txmes = *ce->scp++;
 
             ce->mesp = ((unsigned char***)comevt_message_tab)[sys->com_num][ce->txmes];
+#ifdef TARGET_PC
+            {   /* the game language (pc/src/host/lang.c): the line in it, ASCII (the terminal's font has nothing else) */
+                int com = sys->com_num;
+
+                while (com > 0 && comevt_message_tab[com] == comevt_message_tab[com - 1])
+                {
+                    com--;   /* (terminals 4 to 6 share their lines) */
+                }
+
+                ce->mesp = (unsigned char*)pc_lang_cstr((const char*)ce->mesp, com, ce->txmes);
+            }
+#endif
             break;
         case 225:
             ce->txwait = *ce->scp++;

@@ -60,6 +60,10 @@ const static unsigned short CncDatB[49] =
 	65308, 37778, 37780, 65300, 38035, 38037, 65301, 38292, 38272, 38273, 65535
 };
 
+#ifdef TARGET_PC
+static int pc_map_read, pc_map_shown;   /* the MRY.AFS entry of the floor being read and of the floor shown (its labels in the game language) */
+#endif
+
 // 98.45% matching
 void bhInitMap(enum_2 set_mod)
 {
@@ -459,6 +463,9 @@ int bhControlMap()
         
         MapEntryTask(FtskMapRead, MP_MOD_DAT_SET, (mwP->map_flr + (mwP->stg_no * 6)) + 5);
         
+#ifdef TARGET_PC
+        pc_map_read = (mwP->map_flr + (mwP->stg_no * 6)) + 5;
+#endif
         mwP->map_mode = MP_MOD_WAIT;
         break;
     case MP_MOD_DAT_SET:
@@ -488,6 +495,9 @@ int bhControlMap()
                 
                 mwP->map_objP = mwP->map_mdl.objP;
                 
+#ifdef TARGET_PC
+                pc_map_shown = pc_map_read;
+#endif
                 if (next != -1) 
                 {
                     mwP->status |= 0x10;
@@ -783,7 +793,12 @@ static void MapCodeProcess()
                 
                 njSetConstantMaterial(&mwP->MapPal[mode]);
                 
+#ifdef TARGET_PC
+                /* the game language (pc/src/host/lang.c): an area label (a model of letters) in that language */
+                njCnkEasyMultiDrawModel(pc_lang_map_model(pc_map_shown, mwP->cur_objP - mwP->map_objP, mwP->cur_objP->model));
+#else
                 njCnkEasyMultiDrawModel(mwP->cur_objP->model);
+#endif
             }
             
             njPopMatrixEx();
